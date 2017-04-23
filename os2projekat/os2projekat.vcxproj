@@ -146,9 +146,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="BitMapTree.h" />
     <ClInclude Include="Buddy.h" />
+    <ClInclude Include="Cache.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BitMapTree.cpp" />
     <ClCompile Include="Buddy.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
