@@ -2,6 +2,9 @@
 #include "BitMapTree.h"
 #include <stdio.h>
 #include <assert.h>
+#include <mutex>
+
+std::mutex buddy_mutex;
 
 extern const int N;
 
@@ -53,6 +56,8 @@ int bfree(void* block_ptr) {
 void* buddy_alloc(int i) {
 	/* O(log(number of blocks)) */
 
+	std::lock_guard<std::mutex> lock(buddy_mutex);
+
 	if (i <= __BUDDY_N) {
 		int j = i;
 
@@ -90,11 +95,16 @@ void* buddy_alloc(int i) {
 
 	/* if requested memory is larger then 2^__BUDDY_N */
 	printf("BUDDY: Out of memory error!");
+	buddy_mutex.unlock();
 	return nullptr;
 }
 
 int buddy_dealloc(void * block_ptr) {
 	/* O(number of blocks) */
+
+	std::lock_guard<std::mutex> lock(buddy_mutex);
+
+	if (block_ptr == nullptr) return 1;
 
 	/* block_num is a number of the first block in the chunk of memory pointed by block_ptr */
 	int block_num = (int)(((char*)block_ptr - space) / __BUDDY_BLOCK_SIZE);

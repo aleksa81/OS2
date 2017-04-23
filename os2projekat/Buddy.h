@@ -2,7 +2,7 @@
 #include "BitMapTree.h"
 
 #define __BUDDY_BLOCK_SIZE (4) // in bytes
-#define __BUDDY_N (3) // 2^__BUDDY_N blocks
+#define __BUDDY_N (5) // 2^__BUDDY_N blocks
 #define __BUDDY_NEXT(X) *(int*)block(X) // reference
 
 char space[]; /* memory space */
