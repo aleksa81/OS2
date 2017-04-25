@@ -123,7 +123,7 @@ int bitmapTree_get_buddy(unsigned index) {
 }
 
 int bitmapTree_is_buddy_free(unsigned index) {
-	/* O(numer of blocks) */
+	/* O(number of blocks) */
 
 	return bitmapTree_is_subtree_free(bitmapTree_get_buddy(index));
 }

@@ -42,7 +42,7 @@ int main() {
 
 	buddy_init();
 
-	/*std::thread t1(need_memory);
+	std::thread t1(need_memory);
 	std::thread t2(need_memory);
 	std::thread t3(need_memory);
 	std::thread t4(need_memory);
@@ -50,13 +50,9 @@ int main() {
 	t1.join();
 	t2.join();
 	t3.join();
-	t4.join();*/
+	t4.join();
 	
 	buddy_print();
-
-	for (int i = 0; i < __BITMAP_BITS_COUNT; i++) {
-		printf("%d %d\n", i, bitmapTree_size(i));
-	}
 
 	return 0;
 }
