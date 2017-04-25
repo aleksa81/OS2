@@ -47,13 +47,9 @@ int bitmapTree_get_index_block_size(unsigned index) {
 	/* O( log(number of blocks) ) */
 
 	assert(index < __BITMAP_BITS_COUNT);
-	int sum = 1;
-	int exp = 1;
-	while (index >= sum) {
-		sum += 1 << exp;
-		exp++;
-	}
-	return __BUDDY_N - exp + 1;
+	int i = 1;
+	while (index >((1 << i) - 2)) i++;
+	return __BUDDY_N - i + 1;
 }
 
 int bitmapTree_dealloc_block(unsigned block_num) {
@@ -141,3 +137,4 @@ int bitmapTree_get_block_num(unsigned index) {
 	}
 	return i - (1 << __BUDDY_N) + 1;
 }
+

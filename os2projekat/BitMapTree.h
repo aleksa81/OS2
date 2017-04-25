@@ -29,3 +29,4 @@ int bitmapTree_get_buddy(unsigned index);
 int bitmapTree_is_buddy_free(unsigned index);
 
 int bitmapTree_get_block_num(unsigned index);
+
