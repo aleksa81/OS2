@@ -3,11 +3,6 @@
 #include "Buddy.h"
 
 #define __BITMAP_BITS_PER_WORD (sizeof(char)*8)
-#define __BITMAP_WORDS_COUNT ((1 << (__BUDDY_N + 1))  / __BITMAP_BITS_PER_WORD)
-#define __BITMAP_BITS_COUNT ((1 << (__BUDDY_N + 1))-1)
-
-/* keeps information about allocated memory */
-char bitmap[];
 
 /* prints bitmapTree info */
 void bitmapTree_print();
@@ -19,7 +14,7 @@ short bitmapTree_getbit(unsigned index);
 void bitmapTree_setbit(unsigned index,short value);
 
 /* sets all bits to 0 */
-void bitmapTree_init();
+void bitmapTree_init(int buddy_n);
 
 /* gets index level in bitmapTree */
 int bitmapTree_get_block_size(unsigned index);

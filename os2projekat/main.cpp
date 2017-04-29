@@ -5,8 +5,6 @@
 
 using namespace std;
 
-char space[(__BUDDY_BLOCK_SIZE)*(1 << __BUDDY_N)];
-
 void need_memory() {
 	void * ptr1 = bmalloc(4);
 	void * ptr2 = bmalloc(4);
@@ -40,7 +38,10 @@ void need_memory() {
 
 int main() {
 
-	buddy_init();
+	int n = 10;
+	char* space = (char*)malloc(sizeof(char)*__BUDDY_BLOCK_SIZE*(1<<n));
+
+	buddy_init(space, n);
 
 	std::thread t1(need_memory);
 	std::thread t2(need_memory);

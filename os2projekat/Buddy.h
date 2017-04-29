@@ -1,15 +1,8 @@
 #pragma once
 #include "BitMapTree.h"
 
-#define __BUDDY_BLOCK_SIZE (4) // in bytes
-#define __BUDDY_N (4) // 2^__BUDDY_N blocks
+#define __BUDDY_BLOCK_SIZE (4096) // in bytes
 #define __BUDDY_NEXT(X) *(int*)block(X) // reference
-
-/* memory space */
-char space[];
-
-/* keeps information about free memory */
-int buddy_blocks[];
 
 /* returns pointer to nth block */
 void* block(int n);
@@ -21,7 +14,7 @@ void* buddy_alloc(int i);
 int buddy_dealloc(void* ptr);
 
 /* calls bitmapTree_init() and initializes buddy_blocks */
-void buddy_init();
+void buddy_init(char * space, int n);
 
 /* prints buddy info */
 void buddy_print();

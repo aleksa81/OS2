@@ -4,25 +4,28 @@
 #include <assert.h>
 #include <mutex>
 
+int buddy_N;
+int* buddy_blocks;
+char* buddy_space;
 std::mutex buddy_mutex;
-
-extern const int N;
-
-extern char space[];
-int buddy_blocks[__BUDDY_N + 1];
 
 void* block(int n) {
 	/* returns the pointer to a block number n */
-	if (n >= 0 && n <= 1 << __BUDDY_N) {
-		return space + n*__BUDDY_BLOCK_SIZE;
+	if (n >= 0 && n <= 1 << buddy_N) {
+		return buddy_space + n*__BUDDY_BLOCK_SIZE;
 	}
 	else return nullptr;
 }
 
-void buddy_init() {
-	bitmapTree_init();
-	for (int i = 0; i < __BUDDY_N; i++) buddy_blocks[i] = -1;
-	buddy_blocks[__BUDDY_N] = 0;
+void buddy_init(char * space, int n){
+	bitmapTree_init(n);
+
+	buddy_N = n;
+	buddy_space = space;
+	buddy_blocks = (int*)malloc((n + 1) * sizeof(int));
+
+	for (int i = 0; i < buddy_N; i++) buddy_blocks[i] = -1;
+	buddy_blocks[buddy_N] = 0;
 	__BUDDY_NEXT(0) = -1;
 }
 
@@ -58,14 +61,14 @@ void* buddy_alloc(int i) {
 
 	std::lock_guard<std::mutex> lock(buddy_mutex);
 
-	if (i <= __BUDDY_N) {
+	if (i <= buddy_N) {
 		int j = i;
 
 		/* find bigger block if it exists */
-		while (j <= __BUDDY_N && buddy_blocks[j] == -1) j++;
+		while (j <= buddy_N && buddy_blocks[j] == -1) j++;
 
 		/* if it doesn't exist return an error */
-		if (j > __BUDDY_N) {
+		if (j > buddy_N) {
 			printf("BUDDY: Out of memory error!");
 			return nullptr;
 		}
@@ -107,10 +110,10 @@ int buddy_dealloc(void * block_ptr) {
 	if (block_ptr == nullptr) return 1;
 
 	/* block_num is a number of the first block in the chunk of memory pointed by block_ptr */
-	int block_num = (int)(((char*)block_ptr - space) / __BUDDY_BLOCK_SIZE);
+	int block_num = (int)(((char*)block_ptr - buddy_space) / __BUDDY_BLOCK_SIZE);
 
 	/* check block_ptr validity */
-	assert(block_num >= 0 && block_num < (1 << __BUDDY_N));
+	assert(block_num >= 0 && block_num < (1 << buddy_N));
 
 	/* index = f(block_num, size of memory block that is beeing deallocated) */
 	int index = bitmapTree_dealloc(block_num);
@@ -140,7 +143,7 @@ void buddy_print() {
 	/* prints buddy info */
 	bitmapTree_print();
 
-	for (int i = __BUDDY_N; i >= 0; i--) {
+	for (int i = buddy_N; i >= 0; i--) {
 		printf("2^%d : %d", i, buddy_blocks[i]);
 		int ptr = buddy_blocks[i];
 		while (ptr != -1) {
