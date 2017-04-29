@@ -7,7 +7,6 @@
 
 char space[]; /* memory space */
 int buddy_blocks[]; /* keeps information about free memory */
-int buddy_manager[]; /* keeps information about allocated memory */
 
 void* block(int);
 

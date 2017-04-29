@@ -44,13 +44,13 @@ int main() {
 
 	std::thread t1(need_memory);
 	std::thread t2(need_memory);
-	std::thread t3(need_memory);
-	std::thread t4(need_memory);
+	//std::thread t3(need_memory);
+	//std::thread t4(need_memory);
 
 	t1.join();
 	t2.join();
-	t3.join();
-	t4.join();
+	//t3.join();
+	//t4.join();
 	
 	buddy_print();
 

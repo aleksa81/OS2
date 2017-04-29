@@ -14,11 +14,11 @@ void bitmapTree_setbit(unsigned index,short value);
 
 void bitmapTree_init();
 
-int bitmapTree_get_index_block_size(unsigned index);
+int bitmapTree_get_block_size(unsigned index);
 
-int bitmapTree_dealloc_block(unsigned block_num);
+int bitmapTree_dealloc(unsigned block_num);
 
-void bitmapTree_alloc_block(unsigned block_num, int pow);
+void bitmapTree_alloc(unsigned block_num, int pow);
 
 int bitmapTree_is_subtree_free(unsigned index);
 
@@ -28,5 +28,5 @@ int bitmapTree_get_buddy(unsigned index);
 
 int bitmapTree_is_buddy_free(unsigned index);
 
-int bitmapTree_get_block_num(unsigned index);
+int bitmapTree_get_block(unsigned index);
 

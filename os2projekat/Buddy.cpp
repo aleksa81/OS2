@@ -88,7 +88,7 @@ void* buddy_alloc(int i) {
 
 		/* return pointer to allocated memory and update buddy arrays */
 		void* mem = block(buddy_blocks[i]);
-		bitmapTree_alloc_block(buddy_blocks[i],i);
+		bitmapTree_alloc(buddy_blocks[i],i);
 		buddy_blocks[i] = __BUDDY_NEXT(buddy_blocks[i]);
 		return mem;
 	}
@@ -113,25 +113,21 @@ int buddy_dealloc(void * block_ptr) {
 	assert(block_num >= 0 && block_num < (1 << __BUDDY_N));
 
 	/* index = f(block_num, size of memory block that is beeing deallocated) */
-	int index = bitmapTree_dealloc_block(block_num);
+	int index = bitmapTree_dealloc(block_num);
 
-	/* size of black that is beeing deallocated */
-	int block_size = bitmapTree_get_index_block_size(index);
-
-	/* parent node of node(index) in bitmapTree structure */
-	int index_parent = bitmapTree_get_parent(index);
+	/* size of block that is beeing deallocated */
+	int block_size = bitmapTree_get_block_size(index);
 
 	/* while it's possible to merge two buddies */
 	while (index > 0 && bitmapTree_is_buddy_free(index)) {
 
 		/* delete buddy from free blocks list */
-		buddy_remove_block(bitmapTree_get_block_num(bitmapTree_get_buddy(index)), block_size);
+		buddy_remove_block(bitmapTree_get_block(bitmapTree_get_buddy(index)), block_size);
 
 		/* update variables for next iteration */
-		index = index_parent;
-		block_num = bitmapTree_get_block_num(index);
-		block_size = bitmapTree_get_index_block_size(index);
-		index_parent = bitmapTree_get_parent(index);
+		block_size++;
+		index = bitmapTree_get_parent(index);
+		block_num = bitmapTree_get_block(index);
 	}
 
 	/* link new memory block to the list of free blocks */
@@ -148,8 +144,8 @@ void buddy_print() {
 		printf("2^%d : %d", i, buddy_blocks[i]);
 		int ptr = buddy_blocks[i];
 		while (ptr != -1) {
-			printf(" ");
 			ptr = __BUDDY_NEXT(ptr);
+			printf(" %d", ptr);
 		}
 		printf("\n");
 	}

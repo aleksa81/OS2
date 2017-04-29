@@ -6,10 +6,15 @@ char bitmap[__BITMAP_WORDS_COUNT];
 void bitmapTree_print() {
 	/* O(number of blocks) */
 
+	int exp = 0;
 	for (int i = 0; i < __BITMAP_BITS_COUNT; i++) {
+		if (i == ((1 << exp)-1)) {
+			exp++;
+			printf("| ");
+		}
 		printf("%d ", bitmapTree_getbit(i));
 	}
-	printf("\n");
+	printf("|\n");
 }
 
 void bitmapTree_init() {
@@ -43,7 +48,7 @@ void bitmapTree_setbit(unsigned index, short value) {
 	else bitmap[index / __BITMAP_BITS_PER_WORD] |= mask;
 }
 
-int bitmapTree_get_index_block_size(unsigned index) {
+int bitmapTree_get_block_size(unsigned index) {
 	/* O( log(number of blocks) ) */
 
 	assert(index < __BITMAP_BITS_COUNT);
@@ -52,53 +57,29 @@ int bitmapTree_get_index_block_size(unsigned index) {
 	return __BUDDY_N - i + 1;
 }
 
-int bitmapTree_dealloc_block(unsigned block_num) {
+int bitmapTree_dealloc(unsigned block_num) {
 	/* O( log(number of blocks) ) */
-	/* binary search */
 
 	assert(block_num < (1 << __BUDDY_N));
-	int low = 0;
-	int high = (1 << __BUDDY_N);
-	int i = 0; // index of a node in tree array
-	while (bitmapTree_getbit(i) != 1) {
-		/* while it doesn't hit a bit with value of 1 */
-
-		if (block_num < (low + high) >> 1) {
-			i = (i << 1) + 1; // i = i->left
-			high = (low + high) >> 1;
-		}
-		else {
-			i = (i << 1) + 2; // i = i->right
-			low = (low + high) >> 1;
-		}
-		assert(i < __BITMAP_BITS_COUNT);
+	int leaf = block_num + (1 << __BUDDY_N) - 1;
+	while (bitmapTree_getbit(leaf) != 1) {
+		leaf = bitmapTree_get_parent(leaf);
 	}
-	bitmapTree_setbit(i, 0);
-	return i;
+	assert(leaf >= 0);
+	bitmapTree_setbit(leaf, 0);
+	return leaf;
 }
 
-void bitmapTree_alloc_block(unsigned block_num, int pow) {
+void bitmapTree_alloc(unsigned block_num, int pow) {
 	/* O( log(number of blocks) ) */
-	/* binary search */
 
 	assert(block_num < (1 << __BUDDY_N));
-	int low = 0;
-	int high = (1 << __BUDDY_N);
-	int i = 0; // index of a node in tree array
-	int level = __BUDDY_N;
-	while (level > pow) {
-		if (block_num < (low + high) >> 1) {
-			i = (i << 1) + 1; // i = i->left
-			high = (low + high) >> 1;
-		}
-		else {
-			i = (i << 1) + 2; // i = i->right
-			low = (low + high) >> 1;
-		}
-		level--;
-		assert(i < __BITMAP_BITS_COUNT);
+	int leaf = block_num + (1 << __BUDDY_N) - 1;
+	while (bitmapTree_get_block_size(leaf) < pow) {
+		leaf = bitmapTree_get_parent(leaf);
 	}
-	bitmapTree_setbit(i, 1);
+	assert(leaf >= 0);
+	bitmapTree_setbit(leaf,1);
 }
 
 int bitmapTree_is_subtree_free(unsigned index) {
@@ -128,7 +109,7 @@ int bitmapTree_is_buddy_free(unsigned index) {
 	return bitmapTree_is_subtree_free(bitmapTree_get_buddy(index));
 }
 
-int bitmapTree_get_block_num(unsigned index) {
+int bitmapTree_get_block(unsigned index) {
 	/* O( log(number of blocks) ) */
 
 	int i = index;
