@@ -3,20 +3,6 @@
 
 char bitmap[__BITMAP_WORDS_COUNT];
 
-void bitmapTree_print() {
-	/* O(number of blocks) */
-
-	int exp = 0;
-	for (int i = 0; i < __BITMAP_BITS_COUNT; i++) {
-		if (i == ((1 << exp)-1)) {
-			exp++;
-			printf("| ");
-		}
-		printf("%d ", bitmapTree_getbit(i));
-	}
-	printf("|\n");
-}
-
 void bitmapTree_init() {
 	/* O(number of blocks) */
 
@@ -117,5 +103,19 @@ int bitmapTree_get_block(unsigned index) {
 		i = (i << 1) + 1;
 	}
 	return i - (1 << __BUDDY_N) + 1;
+}
+
+void bitmapTree_print() {
+	/* O(number of blocks) */
+
+	int exp = 0;
+	for (int i = 0; i < __BITMAP_BITS_COUNT; i++) {
+		if (i == ((1 << exp) - 1)) {
+			exp++;
+			printf("| ");
+		}
+		printf("%d ", bitmapTree_getbit(i));
+	}
+	printf("|\n");
 }
 

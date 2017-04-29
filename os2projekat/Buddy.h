@@ -5,18 +5,25 @@
 #define __BUDDY_N (4) // 2^__BUDDY_N blocks
 #define __BUDDY_NEXT(X) *(int*)block(X) // reference
 
-char space[]; /* memory space */
-int buddy_blocks[]; /* keeps information about free memory */
+/* memory space */
+char space[];
 
-void* block(int);
+/* keeps information about free memory */
+int buddy_blocks[];
+
+/* returns pointer to nth block */
+void* block(int n);
 
 /* allocate 2^i continous memory blocks of size = __BUDDY_BLOCK_SIZE */
 void* buddy_alloc(int i);
 
-int buddy_dealloc(void*);
+/* deallocates memory pointed by ptr */
+int buddy_dealloc(void* ptr);
 
+/* calls bitmapTree_init() and initializes buddy_blocks */
 void buddy_init();
 
+/* prints buddy info */
 void buddy_print();
 
 /* remove buddy block_num from the list of buddies with size = 2^exp */
