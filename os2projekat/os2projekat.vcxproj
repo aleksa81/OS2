@@ -87,7 +87,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
     </ClCompile>
     <Link>
@@ -148,11 +148,12 @@
   <ItemGroup>
     <ClInclude Include="BitMapTree.h" />
     <ClInclude Include="Buddy.h" />
-    <ClInclude Include="Cache.h" />
+    <ClInclude Include="slab.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BitMapTree.cpp" />
     <ClCompile Include="Buddy.cpp" />
+    <ClCompile Include="slab.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

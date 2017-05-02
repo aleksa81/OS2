@@ -3,7 +3,11 @@
 #include <stdlib.h>
 #define BLOCK_SIZE (4096)
 #define CACHE_L1_LINE_SIZE (64)
+#define SLAB_SIZE(n) ((1<<n)*BLOCK_SIZE)
+#define LEFT_OVER(num, pow, size) (SLAB_SIZE(pow) - sizeof(kmem_slab_t) - (num)*(size+4))
+#define INSUFFICIENT_SLAB_SPACE(num, pow, size) ((SLAB_SIZE(pow) - sizeof(kmem_slab_t)) < (num)*(size+4))
 typedef struct kmem_cache_s kmem_cache_t;
+typedef struct kmem_slab_s kmem_slab_t;
 
 
 void kmem_init(void *space, int block_num);
@@ -36,3 +40,4 @@ void kmem_cache_info(kmem_cache_t *cachep);
 
 /* Print error message */
 int kmem_cache_error(kmem_cache_t *cachep);
+

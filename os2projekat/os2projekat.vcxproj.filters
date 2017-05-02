@@ -18,10 +18,10 @@
     <ClInclude Include="Buddy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Cache.h">
+    <ClInclude Include="BitMapTree.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="BitMapTree.h">
+    <ClInclude Include="slab.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -33,6 +33,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="BitMapTree.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="slab.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

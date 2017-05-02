@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include "Buddy.h"
 
-#define __BITMAP_BITS_PER_WORD (sizeof(char)*8)
+#define BITMAP_BITS_PER_WORD (sizeof(char)*8)
 
 /* prints bitmapTree info */
 void bitmapTree_print();
@@ -14,7 +14,7 @@ short bitmapTree_getbit(unsigned index);
 void bitmapTree_setbit(unsigned index,short value);
 
 /* sets all bits to 0 */
-void bitmapTree_init(int buddy_n);
+void bitmapTree_init();
 
 /* gets index level in bitmapTree */
 int bitmapTree_get_block_size(unsigned index);
