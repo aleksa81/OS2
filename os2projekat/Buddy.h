@@ -27,6 +27,8 @@
          NEEDS_BIT(N, 30) + NEEDS_BIT(N, 31)   \
         )
 
+#define BUDDY_N (BITS_TO_REPRESENT(BLOCK_NUMBER) - ISPOW2(BLOCK_NUMBER))
+
 /* returns pointer to nth block */
 void* block(int n);
 

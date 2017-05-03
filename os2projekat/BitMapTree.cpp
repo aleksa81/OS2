@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-char bitmap[(1 << (BITS_TO_REPRESENT(BLOCK_NUMBER) - ISPOW2(BLOCK_NUMBER)) + 1) / BITMAP_BITS_PER_WORD];
+char bitmap[(1 << BUDDY_N + 1) / BITMAP_BITS_PER_WORD];
 int bitmap_words_count;
 int bitmap_bits_count;
 

@@ -9,8 +9,7 @@ int buddy_N;
 void* buddy_space;
 std::mutex buddy_mutex;
 
-/* buddy_N + 1 */
-int buddy_blocks[(BITS_TO_REPRESENT(BLOCK_NUMBER) + 1 - ISPOW2(BLOCK_NUMBER))];
+int buddy_blocks[BUDDY_N +1];
 
 void* block(int n) {
 	/* returns the pointer to a block number n */
@@ -23,7 +22,7 @@ void* block(int n) {
 void buddy_init(void * space, int n){
 
 	buddy_space = space;
-	buddy_N = (BITS_TO_REPRESENT(BLOCK_NUMBER) - ISPOW2(BLOCK_NUMBER));
+	buddy_N = BUDDY_N;
 	bitmapTree_init();
 
 	for (int i = 0; i < buddy_N; i++) buddy_blocks[i] = -1;

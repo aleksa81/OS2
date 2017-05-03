@@ -36,17 +36,62 @@ void need_memory() {
 	bfree(ptr8);
 }
 
+int ctor_cnt = 0;
+int dtor_cnt = 0;
+
+
+void ctor(void* mem) {
+	*(int*)mem = ctor_cnt++;
+}
+
+void dtor(void*mem) {
+	printf("dtor on object at address %d! #%d\n", (int)mem, dtor_cnt++);
+}
+
 int main() {
 	void *space = malloc(BLOCK_SIZE * BLOCK_NUMBER);
 
 	kmem_init(space, BLOCK_NUMBER);
-	buddy_print();
 	
 	char buffer[1024];
 	unsigned int size = 512;
 	sprintf_s(buffer, 1024, "size-%d", size);
 
-	//kmem_cache_create(buffer, size, nullptr, nullptr);
+	kmem_cache_t* mc = kmem_cache_create(buffer, size, ctor, dtor);
+
+	/*add_empty_slab(mc);
+	add_empty_slab(mc);
+	add_empty_slab(mc);
+	add_empty_slab(mc);
+
+	kmem_cache_shrink(mc);
+	kmem_cache_shrink(mc);*/
+
+	void* obj1 = kmem_cache_alloc(mc);
+	void* obj2 = kmem_cache_alloc(mc);
+	void* obj3 = kmem_cache_alloc(mc);
+	void* obj4 = kmem_cache_alloc(mc);
+	void* obj5 = kmem_cache_alloc(mc);
+	void* obj6 = kmem_cache_alloc(mc);
+	void* obj7 = kmem_cache_alloc(mc);
+	void* obj8 = kmem_cache_alloc(mc);
+
+
+	kmem_cache_free(mc, obj1);
+	kmem_cache_free(mc, obj2);
+	kmem_cache_free(mc, obj3);
+	kmem_cache_free(mc, obj4);
+	kmem_cache_free(mc, obj5);
+	kmem_cache_free(mc, obj6);
+	kmem_cache_free(mc, obj7);
+	kmem_cache_free(mc, obj8);
+
+	kmem_cache_shrink(mc);
+	kmem_cache_shrink(mc);
+
+	kmem_cache_info(mc);
+
+	buddy_print();
 
 	return 0;
 }
