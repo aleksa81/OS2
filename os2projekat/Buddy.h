@@ -2,7 +2,7 @@
 #include "BitMapTree.h"
 
 #define BLOCK_SIZE (4096) // in bytes (NOT less then 4B)
-#define BLOCK_NUMBER (8)
+#define BLOCK_NUMBER (1000)
 #define NEXT(X) *(int*)block(X) // reference
 #define ISPOW2(X) ((X & (X-1))==0)
 

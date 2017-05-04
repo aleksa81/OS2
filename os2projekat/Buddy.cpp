@@ -160,7 +160,7 @@ int buddy_dealloc(void * block_ptr) {
 
 void buddy_print() {
 	/* prints buddy info */
-	bitmapTree_print();
+	//bitmapTree_print();
 
 	for (int i = buddy_N; i >= 0; i--) {
 		printf("2^%d : %d", i, buddy_blocks[i]);

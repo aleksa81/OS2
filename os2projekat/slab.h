@@ -64,6 +64,7 @@ int is_obj_on_slab(kmem_slab_t* slabp, void* objp);
 void add_empty_slab(kmem_cache_t* cachep);
 
 void enter_cs(kmem_cache_t* cachep);
+
 void leave_cs(kmem_cache_t* cachep);
 
 

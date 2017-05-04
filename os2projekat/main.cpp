@@ -4,40 +4,41 @@
 #include <chrono>
 #include "slab.h"
 
+#define _size 100
+
 using namespace std;
+
+extern kmem_cache_t* cache_head;
 
 void need_objs(kmem_cache_t* mc) {
 
 	printf("in thread\n");
 
-	void* obj1 = kmem_cache_alloc(mc);
-	void* obj2 = kmem_cache_alloc(mc);
-	void* obj3 = kmem_cache_alloc(mc);
-	void* obj4 = kmem_cache_alloc(mc);
-	void* obj5 = kmem_cache_alloc(mc);
-	void* obj6 = kmem_cache_alloc(mc);
-	void* obj7 = kmem_cache_alloc(mc);
-	void* obj8 = kmem_cache_alloc(mc);
+	void* objs[_size];
 
-	std::this_thread::sleep_for(std::chrono::seconds(1));
+	for (int i = 0; i < _size; i++) {
+		objs[i] = kmem_cache_alloc(mc);
+		if (i%10==0) std::this_thread::sleep_for(std::chrono::seconds(1));
+	}
+
+	std::this_thread::sleep_for(std::chrono::seconds(2));
+
+	kmem_cache_shrink(mc);
 
 	printf("woke up\n");
 
-	kmem_cache_free(mc, obj1);
-	kmem_cache_free(mc, obj2);
-	kmem_cache_free(mc, obj3);
-	kmem_cache_free(mc, obj4);
-	kmem_cache_free(mc, obj5);
-	kmem_cache_free(mc, obj6);
-	kmem_cache_free(mc, obj7);
-	kmem_cache_free(mc, obj8);
+	for (int i = 0; i < _size; i++) {
+		kmem_cache_free(mc, objs[i]);
+		if (i % 10 == 0) std::this_thread::sleep_for(std::chrono::seconds(1));
+	}
+
+	kmem_cache_shrink(mc);
 
 	printf("done\n");
 }
 
 int ctor_cnt = 0;
 int dtor_cnt = 0;
-
 
 void ctor(void* mem) {
 	*(int*)mem = ctor_cnt++;
@@ -58,20 +59,27 @@ int main() {
 
 	kmem_cache_t* mc = kmem_cache_create(buffer, size, ctor, dtor);
 
-	
 	std::thread t1(need_objs, mc);
 	std::thread t2(need_objs, mc);
-	//std::thread t3(need_objs, mc);
-	//std::thread t4(need_objs, mc);
+	std::thread t3(need_objs, mc);
+	std::thread t4(need_objs, mc);
+	std::thread t5(need_objs, mc);
+	std::thread t6(need_objs, mc);
+	std::thread t7(need_objs, mc);
+	std::thread t8(need_objs, mc);
+	std::thread t9(need_objs, mc);
+	std::thread t10(need_objs, mc);
 
 	t1.join();
 	t2.join();
-	//t3.join();
-	//t4.join();
-	
-
-	kmem_cache_shrink(mc);
-	kmem_cache_shrink(mc);
+	t3.join();
+	t4.join();
+	t5.join();
+	t6.join();
+	t7.join();
+	t8.join();
+	t9.join();
+	t10.join();
 
 	kmem_cache_info(mc);
 

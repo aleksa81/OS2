@@ -2,7 +2,6 @@
 #include <string.h>
 #include <assert.h>
 #include <windows.h>
-#include <mutex>
 
 kmem_cache_t* cache_head;
 
@@ -26,10 +25,10 @@ typedef struct kmem_cache_s {
 
 	size_t obj_size; //
 	mutable CRITICAL_SECTION cache_cs;
-	mutable std::mutex my_mutex;
 	unsigned int slab_size_power;
 	unsigned int num_of_slabs; //
 	unsigned int objs_per_slab;
+	unsigned int error;
 	unsigned int colour_num;
 	unsigned int colour_next;
 	unsigned int growing; // set it to 1 when cache is expanded, set it to 0 when cache is shrinked
@@ -51,9 +50,9 @@ kmem_cache_t* cache_remove_from_list(kmem_cache_t* cachep) {
 
 kmem_slab_t* slab_remove_from_list(kmem_slab_t** headp, kmem_slab_t* slabp) {
 	if (slabp == nullptr) return nullptr;
-	if (slabp->prev_slab != nullptr) slabp->prev_slab->next_slab = slabp->next_slab;
-	if (slabp->next_slab != nullptr) slabp->next_slab->prev_slab = slabp->prev_slab;
-	if (slabp == (*headp)) *headp = (*headp)->next_slab;
+	if (slabp->prev_slab != nullptr) (slabp->prev_slab)->next_slab = slabp->next_slab;
+	if (slabp->next_slab != nullptr) (slabp->next_slab)->prev_slab = slabp->prev_slab;
+	if (slabp == (*headp)) (*headp) = (*headp)->next_slab;
 	slabp->next_slab = nullptr;
 	slabp->prev_slab = nullptr;
 	return slabp;
@@ -63,6 +62,7 @@ void slab_add_to_list(kmem_slab_t** headp, kmem_slab_t* slabp) {
 	if (slabp == nullptr) return;
 	slabp->next_slab = *headp;
 	slabp->prev_slab = nullptr;
+	if (*headp != nullptr) (*headp)->prev_slab = slabp;
 	*headp = slabp;
 }
 
@@ -70,6 +70,8 @@ kmem_slab_t* new_slab(kmem_cache_t* cachep) {
 	/* returns new slab for cache cachep */
 
 	kmem_slab_t* slabp = (kmem_slab_t*)bmalloc(BLOCK_SIZE*(1 << (cachep->slab_size_power)));
+
+	if (slabp == nullptr) return nullptr; // ERROR <=> all buddy blocks are allocated
 
 #ifdef SLAB_DEBUG
 	printf("allocated %d blocks\n", (1 << (cachep->slab_size_power)));
@@ -80,6 +82,8 @@ kmem_slab_t* new_slab(kmem_cache_t* cachep) {
 	cachep->colour_next = (++(cachep->colour_next) % cachep->colour_num);
 	slabp->inuse = 0;
 	slabp->free = 0;
+	slabp->next_slab = nullptr;
+	slabp->prev_slab = nullptr;
 
 	/* cache is growing */
 	cachep->growing = 1;
@@ -184,6 +188,7 @@ kmem_cache_t *kmem_cache_create(const char *name, size_t size,
 	my_cache->dtor = dtor;
 	my_cache->growing = 0;
 	my_cache->num_of_slabs = 0;
+	my_cache->error = 0;
 
 	my_cache->full = nullptr;
 	my_cache->partial = nullptr;
@@ -283,6 +288,13 @@ void* kmem_cache_alloc(kmem_cache_t *cachep) {
 		/* if partial is nullptr */
 
 		slabp = new_slab(cachep);
+		if (slabp == nullptr) { // ERROR
+
+			cachep->error = 1;
+			/* LEAVE CS */
+			leave_cs(cachep);
+			return nullptr;
+		}
 		slab_add_to_list(&cachep->partial, slabp);
 		cachep->num_of_slabs++;
 		void* objp = slab_alloc(slabp);
@@ -324,13 +336,12 @@ void kmem_cache_free(kmem_cache_t *cachep, void *objp) {
 			slab_free(slabp, objp);
 			if (slabp->inuse == 0) {
 				/* if the slab is now empty move it to empty list */
-				slab_remove_from_list(&cachep->partial, slabp);
-				slab_add_to_list(&cachep->empty, slabp);
-
-				/* LEAVE CS */
-				leave_cs(cachep);
-				return;
+				slab_remove_from_list(&(cachep->partial), slabp);
+				slab_add_to_list(&(cachep->empty), slabp);
 			}
+			/* LEAVE CS */
+			leave_cs(cachep);
+			return;
 		}
 		slabp = slabp->next_slab;
 	}
@@ -342,8 +353,8 @@ void kmem_cache_free(kmem_cache_t *cachep, void *objp) {
 			slab_free(slabp, objp);
 
 			/* the slab is not full anymore */
-			slab_remove_from_list(&cachep->full, slabp);
-			slab_add_to_list(&cachep->partial, slabp);
+			slab_remove_from_list(&(cachep->full), slabp);
+			slab_add_to_list(&(cachep->partial), slabp);
 
 			/* LEAVE CS */
 			leave_cs(cachep);
@@ -358,27 +369,58 @@ void kmem_cache_free(kmem_cache_t *cachep, void *objp) {
 }
 
 void kmem_cache_destroy(kmem_cache_t *cachep) {
+	/* does not have CS */
+
 	if (cachep == nullptr) return;
 	if (cachep->full != nullptr || cachep->partial != nullptr) return;
+	cache_remove_from_list(cachep);
+	cachep->growing = 0;
 	kmem_cache_shrink(cachep);
 	DeleteCriticalSection(&(cachep->cache_cs));
 	bfree(cachep);
 }
 
 void kmem_cache_info(kmem_cache_t* cachep) {
-	printf("FULL - %d\n", cachep->full);
-	printf("PARTIAL - %d\n", cachep->partial);
-	printf("EMPTY - %d\n", cachep->empty);
+
+	/* ENTER CS */
+	enter_cs(cachep);
+
+	kmem_slab_t* slabp = cachep->full;
+	printf("FULL - %d ", cachep->full);
+	while (slabp != nullptr) {
+		printf("%d ", (int)slabp->next_slab);
+		slabp = slabp->next_slab;
+	}
+	printf("\n");
+
+	slabp = cachep->partial;
+	printf("PARTIAL - %d ", cachep->partial);
+	while (slabp != nullptr) {
+		printf("%d ", (int)slabp->next_slab);
+		slabp = slabp->next_slab;
+	}
+	printf("\n");
+
+	slabp = cachep->empty;
+	printf("EMPTY - %d ", cachep->empty);
+	while (slabp != nullptr) {
+		printf("%d ", (int)slabp->next_slab);
+		slabp = slabp->next_slab;
+	}
+	printf("\n\n");
+
+	/* LEAVE CS */
+	leave_cs(cachep);
+}
+
+int kmem_cache_error(kmem_cache_t *cachep) {
+	return cachep->error;
 }
 
 void enter_cs(kmem_cache_t* cachep) {
-	//EnterCriticalSection(&(cachep->cache_cs));
-	std::lock_guard<std::mutex> lock(cachep->my_mutex);
-	printf("ENTER\n");
+	EnterCriticalSection(&(cachep->cache_cs));
 }
 
 void leave_cs(kmem_cache_t* cachep) {
-	//LeaveCriticalSection(&(cachep->cache_cs));
-	//cachep->my_mutex.unlock();
-	printf("LEAVE\n");
+	LeaveCriticalSection(&(cachep->cache_cs));
 }
