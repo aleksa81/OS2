@@ -6,34 +6,33 @@
 
 using namespace std;
 
-void need_memory() {
-	void * ptr1 = bmalloc(4);
-	void * ptr2 = bmalloc(4);
-	void * ptr3 = bmalloc(4);
-	void * ptr4 = bmalloc(4);
+void need_objs(kmem_cache_t* mc) {
 
-	std::this_thread::sleep_for(std::chrono::seconds(3));
+	printf("in thread\n");
 
-	bfree(ptr1);
-	bfree(ptr2);
-
-	void *ptr5 = bmalloc(4);
-	void *ptr6 = bmalloc(4);
-
-	std::this_thread::sleep_for(std::chrono::seconds(1));
-
-	bfree(ptr3);
-	bfree(ptr4);
-
-	void *ptr7 = bmalloc(4);
-	void *ptr8 = bmalloc(4);
+	void* obj1 = kmem_cache_alloc(mc);
+	void* obj2 = kmem_cache_alloc(mc);
+	void* obj3 = kmem_cache_alloc(mc);
+	void* obj4 = kmem_cache_alloc(mc);
+	void* obj5 = kmem_cache_alloc(mc);
+	void* obj6 = kmem_cache_alloc(mc);
+	void* obj7 = kmem_cache_alloc(mc);
+	void* obj8 = kmem_cache_alloc(mc);
 
 	std::this_thread::sleep_for(std::chrono::seconds(1));
 
-	bfree(ptr5);
-	bfree(ptr6);
-	bfree(ptr7);
-	bfree(ptr8);
+	printf("woke up\n");
+
+	kmem_cache_free(mc, obj1);
+	kmem_cache_free(mc, obj2);
+	kmem_cache_free(mc, obj3);
+	kmem_cache_free(mc, obj4);
+	kmem_cache_free(mc, obj5);
+	kmem_cache_free(mc, obj6);
+	kmem_cache_free(mc, obj7);
+	kmem_cache_free(mc, obj8);
+
+	printf("done\n");
 }
 
 int ctor_cnt = 0;
@@ -45,7 +44,7 @@ void ctor(void* mem) {
 }
 
 void dtor(void*mem) {
-	printf("dtor on object at address %d! #%d\n", (int)mem, dtor_cnt++);
+	//printf("dtor on object at address %d! #%d\n", (int)mem, dtor_cnt++);
 }
 
 int main() {
@@ -59,37 +58,24 @@ int main() {
 
 	kmem_cache_t* mc = kmem_cache_create(buffer, size, ctor, dtor);
 
-	/*add_empty_slab(mc);
-	add_empty_slab(mc);
-	add_empty_slab(mc);
-	add_empty_slab(mc);
+	
+	std::thread t1(need_objs, mc);
+	std::thread t2(need_objs, mc);
+	//std::thread t3(need_objs, mc);
+	//std::thread t4(need_objs, mc);
 
-	kmem_cache_shrink(mc);
-	kmem_cache_shrink(mc);*/
-
-	void* obj1 = kmem_cache_alloc(mc);
-	void* obj2 = kmem_cache_alloc(mc);
-	void* obj3 = kmem_cache_alloc(mc);
-	void* obj4 = kmem_cache_alloc(mc);
-	void* obj5 = kmem_cache_alloc(mc);
-	void* obj6 = kmem_cache_alloc(mc);
-	void* obj7 = kmem_cache_alloc(mc);
-	void* obj8 = kmem_cache_alloc(mc);
-
-
-	kmem_cache_free(mc, obj1);
-	kmem_cache_free(mc, obj2);
-	kmem_cache_free(mc, obj3);
-	kmem_cache_free(mc, obj4);
-	kmem_cache_free(mc, obj5);
-	kmem_cache_free(mc, obj6);
-	kmem_cache_free(mc, obj7);
-	kmem_cache_free(mc, obj8);
+	t1.join();
+	t2.join();
+	//t3.join();
+	//t4.join();
+	
 
 	kmem_cache_shrink(mc);
 	kmem_cache_shrink(mc);
 
 	kmem_cache_info(mc);
+
+	kmem_cache_destroy(mc);
 
 	buddy_print();
 

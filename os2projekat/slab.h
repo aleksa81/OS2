@@ -10,7 +10,7 @@
 #define farray(slabp) (int*)(((kmem_slab_t*)slabp)+1)
 #define __CACHE_NAME_LEN (50)
 
-#define SLAB_DEBUG
+//#define SLAB_DEBUG
 
 typedef struct kmem_slab_s kmem_slab_t;
 typedef struct kmem_cache_s kmem_cache_t;
@@ -62,5 +62,8 @@ void slab_free(kmem_slab_t* slabp, void* objp);
 int is_obj_on_slab(kmem_slab_t* slabp, void* objp);
 
 void add_empty_slab(kmem_cache_t* cachep);
+
+void enter_cs(kmem_cache_t* cachep);
+void leave_cs(kmem_cache_t* cachep);
 
 
