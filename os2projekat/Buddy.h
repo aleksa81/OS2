@@ -28,6 +28,7 @@
         )
 
 #define BUDDY_N (BITS_TO_REPRESENT(BLOCK_NUMBER) - ISPOW2(BLOCK_NUMBER))
+#define BLOCK_N (BITS_TO_REPRESENT(BLOCK_SIZE) - 1)
 
 /* returns pointer to nth block */
 void* block(int n);

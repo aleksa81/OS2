@@ -23,6 +23,7 @@ void need_objs(kmem_cache_t* mc) {
 
 	std::this_thread::sleep_for(std::chrono::seconds(2));
 
+	kmem_cache_info(mc);
 	kmem_cache_shrink(mc);
 
 	printf("woke up\n");
@@ -31,9 +32,7 @@ void need_objs(kmem_cache_t* mc) {
 		kmem_cache_free(mc, objs[i]);
 		if (i % 10 == 0) std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
-
 	kmem_cache_shrink(mc);
-
 	printf("done\n");
 }
 
@@ -53,7 +52,7 @@ int main() {
 
 	kmem_init(space, BLOCK_NUMBER);
 	
-	char buffer[1024];
+	/*char buffer[1024];
 	unsigned int size = 512;
 	sprintf_s(buffer, 1024, "size-%d", size);
 
@@ -85,7 +84,7 @@ int main() {
 
 	kmem_cache_destroy(mc);
 
-	buddy_print();
+	buddy_print();*/
 
 	return 0;
 }
