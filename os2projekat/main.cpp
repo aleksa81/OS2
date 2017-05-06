@@ -52,7 +52,7 @@ int main() {
 
 	kmem_init(space, BLOCK_NUMBER);
 	
-	/*char buffer[1024];
+	char buffer[1024];
 	unsigned int size = 512;
 	sprintf_s(buffer, 1024, "size-%d", size);
 
@@ -84,7 +84,7 @@ int main() {
 
 	kmem_cache_destroy(mc);
 
-	buddy_print();*/
+	buddy_print();
 
 	return 0;
 }

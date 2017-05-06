@@ -9,7 +9,7 @@ kmem_cache_t* cache_head;
 unsigned start;
 
 /* all pointers are set to nullptr in the beginning */
-kmem_slab_t** block_to_slab_mapping;
+kmem_slab_t* block_to_slab_mapping[BLOCK_NUMBER] = {nullptr};
 
 typedef struct mem_buffer {
 	size_t cs_size;
@@ -266,9 +266,7 @@ void cache_constructor(kmem_cache_t* cachep, const char* name, size_t size,
 
 void cache_sizes_init() {
 	/* initialize all size-N caches */
-	kmem_cache_t* cachep = (kmem_cache_t*)bmalloc(CACHE_SIZES_NUM * sizeof(kmem_cache_t) +
-							                      BLOCK_NUMBER    * sizeof(kmem_slab_t*)
-							                     );
+	kmem_cache_t* cachep = (kmem_cache_t*)bmalloc(CACHE_SIZES_NUM * sizeof(kmem_cache_t));
 
 	/* this must not be nullptr */
 	assert(cachep != nullptr);
@@ -283,23 +281,8 @@ void cache_sizes_init() {
 		cache_constructor(cachep, name, bsize, nullptr, nullptr);
 		mem_buffer_array[i].cs_cachep = cachep;
 	}
-
-	kmem_slab_t ** slabp = (kmem_slab_t**)cachep;
-
-	block_to_slab_mapping = slabp;
-	
-	for (int i=0;i<BLOCK_NUMBER;i++) *(slabp+i) = nullptr;
-#ifdef SLAB_DEBUG
-	for (int i = 0; i < CACHE_SIZES_NUM; i++) {
-		printf("name: %s\n", mem_buffer_array[i].cs_cachep->name);
-	}
-#endif
-
 }
 
-int kmem_cache_error(kmem_cache_t *cachep) {
-	return cachep->error;
-}
 
 void enter_cs(kmem_cache_t* cachep) {
 	EnterCriticalSection(&cachep->cache_cs);
@@ -495,6 +478,10 @@ void kmem_cache_info(kmem_cache_t* cachep) {
 
 	/* LEAVE CS */
 	leave_cs(cachep);
+}
+
+int kmem_cache_error(kmem_cache_t *cachep) {
+	return cachep->error;
 }
 
 void* kmalloc(size_t size) {
