@@ -44,12 +44,8 @@ void buddy_remove_block(int block_num, int exp) {
 
 void* bmalloc(int size_in_bytes) {
 	assert(size_in_bytes > 0);
-	int buddy_size = BLOCK_SIZE;
 	int pow = 0;
-	while (buddy_size < size_in_bytes) {
-		buddy_size <<= 1;
-		pow++;
-	}
+	while ((1<<pow)*BLOCK_SIZE < size_in_bytes) pow++;
 	return buddy_alloc(pow);
 }
 

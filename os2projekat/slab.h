@@ -9,12 +9,11 @@
 #define INSUFFICIENT_SLAB_SPACE(num, pow, size) ((SLAB_SIZE(pow) - sizeof(kmem_slab_t)) < (num)*(size+4))
 #define FREE_OBJS(slabp) (int*)(((kmem_slab_t*)slabp)+1)
 #define CACHE_NAME_LEN (20)
+#define OBJECT_TRESHOLD ((BLOCK_SIZE)>>3) // 1/8 of block size
 
 /* for size-N caches (mem_buffer_array must be consistent!) */
 #define CACHE_SIZES_NUM (13)
 #define MIN_CACHE_SIZE (5)
-
-//#define SLAB_DEBUG
 
 typedef struct kmem_slab_s kmem_slab_t;
 typedef struct kmem_cache_s kmem_cache_t;
@@ -82,17 +81,25 @@ int is_obj_on_slab(kmem_slab_t* slabp, void* objp);
 /* Adds empty slab to cache */
 void add_empty_slab(kmem_cache_t* cachep);
 
-/* enters critical section for cache cachep */
+/* Enters critical section for cache cachep */
 void enter_cs(kmem_cache_t* cachep);
 
-/* leaves critical section for cache cachep */
+/* Leaves critical section for cache cachep */
 void leave_cs(kmem_cache_t* cachep);
 
+/* Constructs cache on the given address */
 void cache_constructor(kmem_cache_t* cachep, const char* name, size_t size,
 	void(*ctor)(void*),
 	void(*dtor)(void*));
 
+/* Initialize all size-N caches */
 void cache_sizes_init();
+
+/* Prints slab info */
+void kmem_slab_info(kmem_slab_t* slabp);
+
+/* Ctor for small memory buffers */
+void cache_sizes_ctor(void* mem);
 
 
 
