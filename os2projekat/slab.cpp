@@ -198,8 +198,8 @@ void slab_free(kmem_slab_t* slabp, void* objp) {
 
 	unsigned objn = ((unsigned)objp - (unsigned)slabp->objs) / slabp->my_cache->obj_size;
 	*(FREE_OBJS(slabp) + objn) = slabp->free;
-	slabp->inuse--;
 	slabp->free = objn;
+	slabp->inuse--;
 }
 
 int is_obj_on_slab(kmem_slab_t* slabp, void* objp) {
