@@ -127,7 +127,7 @@ void kmem_slab_info(kmem_slab_t* slabp) {
 				*(unsigned*)((unsigned)slabp->objs + i*slabp->my_cache->obj_size));
 		}
 		printf("slab objs end %d\n", ((unsigned)slabp->objs + slabp->my_cache->objs_per_slab*slabp->my_cache->obj_size)
-			- (unsigned)slabp->objs);
+			- (unsigned)slabp->objs + (slabp->my_colour)*CACHE_L1_LINE_SIZE);
 
 		printf("slab end %d\n", BLOCK_SIZE*(slabp->my_cache->slab_size));
 	}
@@ -160,16 +160,17 @@ kmem_slab_t* new_slab(kmem_cache_t* cachep) {
 		if (slabp == nullptr) return nullptr;
 		slabp->objs = bmalloc(BLOCK_SIZE*cachep->slab_size);
 		if (slabp->objs == nullptr) return nullptr;
-		slabp->objs = (void*)((unsigned)slabp->objs + (cachep->colour_next)*CACHE_L1_LINE_SIZE);
 	}
 	else {
 		/* if slab descriptor is kept on slab */
 
 		slabp = (kmem_slab_t*)bmalloc(BLOCK_SIZE*cachep->slab_size);
 		if (slabp == nullptr) return nullptr;
-		slabp->objs = (void*)((unsigned)(FREE_OBJS(slabp) + cachep->objs_per_slab)
-			+ (cachep->colour_next)*CACHE_L1_LINE_SIZE);
+		slabp->objs = (void*)(unsigned)(FREE_OBJS(slabp) + cachep->objs_per_slab);
 	}
+
+	/* add offset to objs pointer */
+	slabp->objs = (void*)((unsigned)slabp->objs + (cachep->colour_next)*CACHE_L1_LINE_SIZE);
 
 	slabp->my_colour = cachep->colour_next;
 	cachep->colour_next = (++(cachep->colour_next) % cachep->colour_num);
