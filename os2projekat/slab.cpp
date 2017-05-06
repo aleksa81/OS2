@@ -433,15 +433,17 @@ void* kmem_cache_alloc(kmem_cache_t *cachep) {
 	void* objp = nullptr;
 
 	if (cachep->partial == nullptr) {
-		/* make new empty slab, allocate one obj and move it to partial */
+		/* make new empty slab */
 
 		slabp = new_slab(cachep);
 		if (slabp == nullptr) cachep->error = 1;
 		else {
-			cachep->num_of_slabs++;
-			cachep->num_of_active_objs++;
+			/* allocate one obj and move it to partial */
+
 			objp = slab_alloc(slabp);
 			slab_add_to_list(&cachep->partial, slabp);
+			cachep->num_of_active_objs++;
+			cachep->num_of_slabs++;
 		}
 	}
 	else {

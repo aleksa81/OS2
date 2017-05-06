@@ -46,13 +46,13 @@ int main() {
 	kmem_init(space, BLOCK_NUMBER);
 	
 	char buffer[1024];
-	unsigned int size = 600;
+	unsigned int size = 512;
 
 	sprintf_s(buffer, 1024, "my size-%d", size);
 
 	kmem_cache_t* mc = kmem_cache_create(buffer, size, ctor, dtor);
 
-	/*std::thread t1(need_objs, mc);
+	std::thread t1(need_objs, mc);
 	std::thread t2(need_objs, mc);
 	std::thread t3(need_objs, mc);
 	std::thread t4(need_objs, mc);
@@ -78,17 +78,17 @@ int main() {
 
 	kmem_cache_destroy(mc);
 
-	buddy_print();*/
+	buddy_print();
 
-	add_empty_slab(mc);
-	add_empty_slab(mc);
-	add_empty_slab(mc);
-	add_empty_slab(mc);
-	add_empty_slab(mc);
-	add_empty_slab(mc);
-	add_empty_slab(mc);
-	add_empty_slab(mc);
-	add_empty_slab(mc);
+	//add_empty_slab(mc);
+	//add_empty_slab(mc);
+	//add_empty_slab(mc);
+	//add_empty_slab(mc);
+	//add_empty_slab(mc);
+	//add_empty_slab(mc);
+	//add_empty_slab(mc);
+	//add_empty_slab(mc);
+	//add_empty_slab(mc);
 
 
 	return 0;
