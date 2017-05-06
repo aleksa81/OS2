@@ -5,8 +5,13 @@
 #define BLOCK_SIZE (4096)
 #define CACHE_L1_LINE_SIZE (64)
 #define SLAB_SIZE(n) ((1<<n)*BLOCK_SIZE)
-#define LEFT_OVER(num, pow, size) (SLAB_SIZE(pow) - sizeof(kmem_slab_t) - (num)*(size+4))
-#define INSUFFICIENT_SLAB_SPACE(num, pow, size) ((SLAB_SIZE(pow) - sizeof(kmem_slab_t)) < (num)*(size+4))
+
+#define LEFT_OVER(num, pow, size, off) \
+		(SLAB_SIZE(pow) - (1-off)*sizeof(kmem_slab_t) - (num)*(size+(1-off)*sizeof(int)))
+
+#define INSUFFICIENT_SLAB_SPACE(num, pow, size, off) \
+		((SLAB_SIZE(pow) - (1-off)*sizeof(kmem_slab_t)) < (num)*(size+(1-off)*sizeof(int)))
+
 #define FREE_OBJS(slabp) (int*)(((kmem_slab_t*)slabp)+1)
 #define CACHE_NAME_LEN (20)
 #define OBJECT_TRESHOLD ((BLOCK_SIZE)>>3) // 1/8 of block size
@@ -14,6 +19,8 @@
 /* for size-N caches (mem_buffer_array must be consistent!) */
 #define CACHE_SIZES_NUM (13)
 #define MIN_CACHE_SIZE (5)
+
+//#define SLAB_DEBUG
 
 typedef struct kmem_slab_s kmem_slab_t;
 typedef struct kmem_cache_s kmem_cache_t;
@@ -100,6 +107,8 @@ void kmem_slab_info(kmem_slab_t* slabp);
 
 /* Ctor for small memory buffers */
 void cache_sizes_ctor(void* mem);
+
+void kmem_cache_estimate(unsigned* pow, unsigned* num, int size,  int off);
 
 
 
