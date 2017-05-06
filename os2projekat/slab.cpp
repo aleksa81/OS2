@@ -62,7 +62,7 @@ typedef struct kmem_cache_s {
 	unsigned int colour_num;
 	unsigned int colour_next;
 	unsigned int num_of_active_objs;
-	unsigned int off_slab;
+	int off_slab;
 
 	/* set it to 1 when cache is expanded, set it to 0 when cache is shrinked */
 	unsigned int growing;
@@ -117,8 +117,23 @@ void kmem_slab_info(kmem_slab_t* slabp) {
 	}
 	printf("\n");
 	printf("slab desc. array end %d\n", (unsigned)FREE_OBJS(slabp) - (unsigned)slabp + 4 * slabp->my_cache->objs_per_slab);
-	if (slabp->my_cache->off_slab == 0) {
-		printf("slab objs start (slab desc. off slab) %d\n", (unsigned)slabp->objs - (unsigned)slabp);
+	if (slabp->my_cache->off_slab == 1) {
+		printf("slab desc.off slab\n");
+		printf("objs slab start %d\n", 0);
+
+		for (int i = 0; i < slabp->my_cache->objs_per_slab; i++) {
+			printf("%d - %d\n", 
+				((unsigned)slabp->objs + i*slabp->my_cache->obj_size) - (unsigned)slabp->objs + (slabp->my_colour)*CACHE_L1_LINE_SIZE,
+				*(unsigned*)((unsigned)slabp->objs + i*slabp->my_cache->obj_size));
+		}
+		printf("slab objs end %d\n", ((unsigned)slabp->objs + slabp->my_cache->objs_per_slab*slabp->my_cache->obj_size)
+			- (unsigned)slabp->objs);
+
+		printf("slab end %d\n", BLOCK_SIZE*(slabp->my_cache->slab_size));
+	}
+	else {
+		printf("slab desc. on slab\n");
+		printf("slab objs start %d\n", (unsigned)slabp->objs - (unsigned)slabp);
 
 		for (int i = 0; i < slabp->my_cache->objs_per_slab; i++) {
 			printf("%d - %d\n", ((unsigned)slabp->objs + i*slabp->my_cache->obj_size) - (unsigned)slabp,
@@ -129,30 +144,36 @@ void kmem_slab_info(kmem_slab_t* slabp) {
 
 		printf("slab end %d\n", BLOCK_SIZE*(slabp->my_cache->slab_size));
 	}
-	else {
-		printf("slab objs start (slab desc. on slab) %d\n", (unsigned)slabp->objs - (unsigned)slabp->objs);
-
-		for (int i = 0; i < slabp->my_cache->objs_per_slab; i++) {
-			printf("%d - %d\n", ((unsigned)slabp->objs + i*slabp->my_cache->obj_size) - (unsigned)slabp->objs,
-				*(unsigned*)((unsigned)slabp->objs + i*slabp->my_cache->obj_size));
-		}
-		printf("slab objs end %d\n", ((unsigned)slabp->objs + slabp->my_cache->objs_per_slab*slabp->my_cache->obj_size)
-			- (unsigned)slabp->objs);
-
-		printf("slab end %d\n", BLOCK_SIZE*(slabp->my_cache->slab_size));
-	}
 }
 
 kmem_slab_t* new_slab(kmem_cache_t* cachep) {
 	/* returns new slab for cache cachep */
 
-	kmem_slab_t* slabp = (kmem_slab_t*)bmalloc(BLOCK_SIZE*cachep->slab_size);
+	if (cachep == nullptr) return nullptr;
 
-	if (slabp == nullptr) return nullptr; // cachep->error = 1
+	kmem_slab_t* slabp;
 
-	slabp->my_cache = cachep;
+	if (cachep->off_slab == 1) {
+		/* if slab descriptor is kept off slab */
+
+		slabp = (kmem_slab_t*)kmalloc(sizeof(kmem_slab_t) + cachep->objs_per_slab*sizeof(int));
+		if (slabp == nullptr) return nullptr;
+		slabp->objs = bmalloc(BLOCK_SIZE*cachep->slab_size);
+		if (slabp->objs == nullptr) return nullptr;
+		slabp->objs = (void*)((unsigned)slabp->objs + (cachep->colour_next)*CACHE_L1_LINE_SIZE);
+	}
+	else {
+		/* if slab descriptor is kept on slab */
+
+		slabp = (kmem_slab_t*)bmalloc(BLOCK_SIZE*cachep->slab_size);
+		if (slabp == nullptr) return nullptr;
+		slabp->objs = (void*)((unsigned)(FREE_OBJS(slabp) + cachep->objs_per_slab)
+			+ (cachep->colour_next)*CACHE_L1_LINE_SIZE);
+	}
+
 	slabp->my_colour = cachep->colour_next;
 	cachep->colour_next = (++(cachep->colour_next) % cachep->colour_num);
+	slabp->my_cache = cachep;
 	slabp->inuse = 0;
 	slabp->free = 0;
 	slabp->next_slab = nullptr;
@@ -161,28 +182,17 @@ kmem_slab_t* new_slab(kmem_cache_t* cachep) {
 	/* cache is growing */
 	cachep->growing = 1;
 
-	/* init array of indexes of free objects */
+	/* init array of indexes of free objects (always kept on slab)*/
 	for (int i = 0; i < cachep->objs_per_slab - 1; i++) {
 		*(FREE_OBJS(slabp) + i) = i + 1;
 	}
 	*(FREE_OBJS(slabp) + cachep->objs_per_slab - 1) = -1;
 
-	/* where do objects start */
-	slabp->objs = (void*)((unsigned)(FREE_OBJS(slabp) + cachep->objs_per_slab)
-		+ (slabp->my_colour)*CACHE_L1_LINE_SIZE);
-
 	/* init all objects on the slab */
-	for (int i = 0; i < cachep->objs_per_slab; i++) {
-		if (cachep->ctor != nullptr) {
-			(cachep->ctor)((void*)((unsigned)slabp->objs + i*cachep->obj_size));
-		}
-	}
+	process_objects_on_slab(slabp, cachep->ctor);
 
 	/* block to slab mapping update */
-	int block_num = ((int)slabp->objs - start) / BLOCK_SIZE;
-	for (int i = block_num; i < block_num + cachep->slab_size; i++) {
-		block_to_slab_mapping[i] = slabp;
-	}
+	btsm_update(slabp, slabp);
 
 	return slabp;
 }
@@ -263,17 +273,17 @@ void cache_constructor(kmem_cache_t* cachep, const char* name, size_t size,
 	unsigned int pow = 0;
 	unsigned int num = 1;
 
-	kmem_cache_estimate(&pow, &num, size, 0); // off
+	kmem_cache_estimate(&pow, &num, size, cachep->off_slab); 
 
 	cachep->slab_size = (1 << pow);
 	cachep->objs_per_slab = num;
 
 	cachep->colour_next = 0;
-	cachep->colour_num = LEFT_OVER(num, pow, size, 0) / CACHE_L1_LINE_SIZE + 1; // off
+	cachep->colour_num = LEFT_OVER(num, pow, size, cachep->off_slab) / CACHE_L1_LINE_SIZE + 1; 
 
 #ifdef SLAB_DEBUG
-	// fali off u printf LEFT_OVER
-	printf("left-over:%d 1/8:%d slab:%d\n", LEFT_OVER(num, pow, size), (SLAB_SIZE(pow) >> 3), sizeof(kmem_slab_t));
+	printf("left-over:%d 1/8:%d slab size:%d\n", LEFT_OVER(num, pow, size, cachep->off_slab), 
+										   (SLAB_SIZE(pow) >> 3), sizeof(kmem_slab_t));
 	printf("slab size:2^%d blocks, num:%d, colours:%d\n\n", pow, num, cachep->colour_num);
 #endif
 }
@@ -321,6 +331,26 @@ void leave_cs(kmem_cache_t* cachep) {
 	LeaveCriticalSection(&cachep->cache_cs);
 }
 
+void process_objects_on_slab(kmem_slab_t* slabp, void(*function)(void *)) {
+	if (slabp == nullptr || function == nullptr) return;
+	int obj_num = slabp->my_cache->objs_per_slab;
+	int obj_size = slabp->my_cache->obj_size;
+
+	for (int i = 0; i < obj_num; i++) {
+			function((void*)((int)slabp->objs + i*obj_size));
+	}
+}
+
+void btsm_update(kmem_slab_t* slabp, kmem_slab_t* set_to) {
+	if (slabp == nullptr) return;
+	int block_num = ((int)slabp->objs - start) / BLOCK_SIZE;
+	int limit = block_num + slabp->my_cache->slab_size;
+
+	for (int i = block_num; i < limit; i++) {
+		block_to_slab_mapping[i] = set_to;
+	}
+}
+
 /* ----------------------------------------------------------- */
 /* -------------------------- CACHE -------------------------- */
 /* ----------------------------------------------------------- */
@@ -340,8 +370,8 @@ kmem_cache_t *kmem_cache_create(const char *name, size_t size,
 void kmem_init(void *space, int block_num) {
 	cache_head = nullptr;
 	buddy_init(space, block_num);
-	cache_sizes_init();
 	start = (unsigned)space;
+	cache_sizes_init();
 }
 
 int kmem_cache_shrink(kmem_cache_t *cachep) {
@@ -362,26 +392,28 @@ int kmem_cache_shrink(kmem_cache_t *cachep) {
 	if (cachep->empty != nullptr) {
 		int cnt = 0;
 		while (cachep->empty != nullptr) {
+			/* free all empty slabs */
+
 			kmem_slab_t* slabp = slab_remove_from_list(&cachep->empty, cachep->empty);
 
 			/* destroy all objects on this slab */
-			for (int i = 0; i < cachep->objs_per_slab; i++) {
-				if (cachep->dtor != nullptr) {
-					(cachep->dtor)((void*)((int)slabp->objs + i*cachep->obj_size));
-				}
-			}
+			process_objects_on_slab(slabp, cachep->dtor);
+
 			cachep->num_of_slabs--;
 
 			/* block to slab mapping update */
-			int block_num = ((int)slabp->objs - start) / BLOCK_SIZE;
-			for (int i = block_num; i < block_num + cachep->slab_size; i++) {
-				block_to_slab_mapping[i] = nullptr;
-			}
+			btsm_update(slabp, nullptr);
 
-			bfree(slabp);
+			if (cachep->off_slab == 1) {
+				/* if slab descriptor is kept on slab */
+
+				bfree(slabp->objs);
+				kfree(slabp);
+			}
+			else bfree(slabp);
+			
 			cnt++;
 		}
-
 		num_of_freed_blocks = cachep->slab_size * cnt;
 	}
 
@@ -515,7 +547,16 @@ void kmem_cache_info(kmem_cache_t* cachep) {
 
 int kmem_cache_error(kmem_cache_t *cachep) {
 	if (cachep == nullptr) return -1;
-	return cachep->error;
+
+	/* ENTER CS */
+	enter_cs(cachep);
+
+	int err = cachep->error;
+
+	/* LEAVE CS */
+	leave_cs(cachep);
+
+	return err;
 }
 
 void* kmalloc(size_t size) {

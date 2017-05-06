@@ -54,10 +54,10 @@ void kfree(const void *objp);
 /* Deallocate cache */
 void kmem_cache_destroy(kmem_cache_t *cachep);
 
-/* Print cache info */
+/* Print cache info (thread safe) */
 void kmem_cache_info(kmem_cache_t *cachep);
 
-/* Print error message */
+/* Print error message (thread safe) */
 int kmem_cache_error(kmem_cache_t *cachep);
 
 /* ---------------------------------------------------------- */
@@ -108,7 +108,14 @@ void kmem_slab_info(kmem_slab_t* slabp);
 /* Ctor for small memory buffers */
 void cache_sizes_ctor(void* mem);
 
+/* Calculate slab size and number of objects per slab */
 void kmem_cache_estimate(unsigned* pow, unsigned* num, int size,  int off);
+
+/* Calls ctor/dtor on all objects on this slab */
+void process_objects_on_slab(kmem_slab_t* slabp, void(*function)(void *));
+
+/* Update btsm so that all blocks of slabp map to set_to */
+void btsm_update(kmem_slab_t* slabp, kmem_slab_t* set_to);
 
 
 

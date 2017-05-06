@@ -12,8 +12,6 @@ extern kmem_cache_t* cache_head;
 
 void need_objs(kmem_cache_t* mc) {
 
-	printf("in thread\n");
-
 	void* objs[_size];
 
 	for (int i = 0; i < _size; i++) {
@@ -23,15 +21,12 @@ void need_objs(kmem_cache_t* mc) {
 
 	std::this_thread::sleep_for(std::chrono::seconds(1));
 
-	kmem_cache_info(mc);
-
-	printf("woke up\n");
+	//kmem_cache_info(mc);
 
 	for (int i = 0; i < _size; i++) {
 		kmem_cache_free(mc, objs[i]);
 		if (i % 10 == 0) std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
-	printf("done\n");
 }
 
 int ctor_cnt = 0;
@@ -84,6 +79,7 @@ int main() {
 	kmem_cache_destroy(mc);
 
 	buddy_print();
+
 
 	return 0;
 }
