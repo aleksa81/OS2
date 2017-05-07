@@ -5,6 +5,7 @@
 #include <mutex>
 
 //#define USE_CS
+//#define LINUX_LIKE_CACHE_INFO
 
 kmem_cache_t* cache_head;
 
@@ -60,8 +61,7 @@ typedef struct kmem_cache_s {
 	/* CS is much faster then mutex */
 	/* Using EnterCriticalSection more then once on single thread can't deadlock itself */
 	mutable CRITICAL_SECTION cache_cs;
-#endif
-#ifndef USE_CS
+#else
 	/* mutex is shared between processes */
 	std::mutex* cache_mutex;
 #endif 
@@ -281,8 +281,7 @@ void cache_constructor(kmem_cache_t* cachep, const char* name, size_t size,
 	/* init critical section of this cache (mutex) */
 #ifdef USE_CS
 	InitializeCriticalSection(&(cachep->cache_cs));
-#endif
-#ifndef USE_CS
+#else
 	/* placement new operator does not allocate memory */
 	cachep->cache_mutex = new std::mutex(), (std::mutex*)kmalloc(sizeof(std::mutex));
 #endif
@@ -347,8 +346,7 @@ void cache_sizes_init() {
 void enter_cs(kmem_cache_t* cachep) {
 #ifdef USE_CS
 	EnterCriticalSection(&cachep->cache_cs);
-#endif
-#ifndef USE_CS
+#else
 	std::lock_guard<std::mutex> lock(*cachep->cache_mutex);
 #endif
 }
@@ -424,11 +422,10 @@ int kmem_cache_shrink(kmem_cache_t *cachep) {
 			/* free all empty slabs */
 
 			kmem_slab_t* slabp = slab_remove_from_list(&cachep->empty, cachep->empty);
+			cachep->num_of_slabs--;
 
 			/* destroy all objects on this slab */
 			process_objects_on_slab(slabp, cachep->dtor);
-
-			cachep->num_of_slabs--;
 
 			/* block to slab mapping update */
 			btsm_update(slabp, nullptr);
@@ -541,29 +538,49 @@ void kmem_cache_info(kmem_cache_t* cachep) {
 	/* ENTER CS */
 	enter_cs(cachep);
 
+#ifdef LINUX_LIKE_CACHE_INFO
 	int empty_slab_cnt = 0;
 	kmem_slab_t* slabp = cachep->empty;
 	while (slabp != nullptr) {
 		slabp = slabp->next_slab;
 		empty_slab_cnt++;
 	}
-	
+
+	int active_slabs = cachep->num_of_slabs - empty_slab_cnt;
+#endif
+
 	int active_objs = cachep->num_of_active_objs;
 	int total_objs = cachep->num_of_slabs * cachep->objs_per_slab;
-	int obj_size = cachep->obj_size;
-	int active_slabs = cachep->num_of_slabs - empty_slab_cnt;
 	int total_slabs = cachep->num_of_slabs;
-	int pages_per_slab = cachep->slab_size;
+	int blocks_per_slab = cachep->slab_size;
 
-	printf("%-.*s%7d%7d%7d%5d%5d%5d\n", CACHE_NAME_LEN, 
-										cachep->name, 
-										active_objs, 
-										total_objs,
-										obj_size,
-										active_slabs,
-										total_slabs,
-										pages_per_slab 
+	int obj_size = cachep->obj_size;
+
+	/* in size of blocks */
+	int total_cache_size = cachep->num_of_slabs*cachep->slab_size;
+
+	int num_of_slabs = cachep->num_of_slabs;
+	int objs_per_slab = cachep->objs_per_slab;
+	double percentage_used = (double)active_objs / total_objs * 100;
+
+#ifdef LINUX_LIKE_CACHE_INFO
+	printf("%-*s%*d %*d %*d %*d %*d %*d\n", CACHE_NAME_LEN, cachep->name,
+											7, active_objs, 
+											7, total_objs,
+											7, obj_size,
+											5, active_slabs,
+											5, total_slabs,
+											5, blocks_per_slab 
 		  );
+#else
+	printf("%-*s%*d %*d %*d %*d %*.2f%%\n", CACHE_NAME_LEN, cachep->name,
+											5, obj_size,
+											7, total_cache_size,
+											7, num_of_slabs,
+											5, objs_per_slab,
+											7, percentage_used
+	);
+#endif
 
 	/* LEAVE CS */
 	leave_cs(cachep);
