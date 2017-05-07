@@ -87,7 +87,7 @@ void slab_free(kmem_slab_t* slabp, void* objp);
 int is_obj_on_slab(kmem_slab_t* slabp, void* objp);
 
 /* Adds empty slab to cache */
-void add_empty_slab(kmem_cache_t* cachep);
+void add_empty_slab(kmem_cache_t* cachep); // for debugging
 
 /* Enters critical section for cache cachep */
 void enter_cs(kmem_cache_t* cachep);
@@ -104,7 +104,7 @@ void cache_constructor(kmem_cache_t* cachep, const char* name, size_t size,
 void cache_sizes_init();
 
 /* Prints slab info */
-void kmem_slab_info(kmem_slab_t* slabp);
+void kmem_slab_info(kmem_slab_t* slabp); // for debugging
 
 /* Ctor for small memory buffers */
 void cache_sizes_ctor(void* mem);
@@ -118,7 +118,7 @@ void process_objects_on_slab(kmem_slab_t* slabp, void(*function)(void *));
 /* Update btsm so that all blocks of slabp map to set_to */
 void btsm_update(kmem_slab_t* slabp, kmem_slab_t* set_to);
 
-void test_estimate();
+void test_estimate(); // for debugging
 
 
 

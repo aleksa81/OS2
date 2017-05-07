@@ -117,6 +117,8 @@ void slab_add_to_list(kmem_slab_t** headp, kmem_slab_t* slabp) {
 }
 
 void kmem_slab_info(kmem_slab_t* slabp) {
+	/* for debugging purposes */
+
 	if (slabp == nullptr) return;
 	printf("\nallocated %d blocks\n", slabp->my_cache->slab_size);
 	printf("slab desc. start %d\n", (int)slabp - (int)slabp);
@@ -381,6 +383,24 @@ void btsm_update(kmem_slab_t* slabp, kmem_slab_t* set_to) {
 	}
 }
 
+void test_estimate() {
+	/* for debugging purposes */
+
+	unsigned pow;
+	unsigned num;
+	int size = 7;
+	int off = 0;
+
+	// off = 1
+	kmem_cache_estimate(&pow, &num, size, off);
+
+	unsigned colour_num = LEFT_OVER(num, pow, size, off) / CACHE_L1_LINE_SIZE + 1;
+
+	printf("left-over:%d\n1/8 of slab:%d\n", LEFT_OVER(num, pow, size, off),
+		(SLAB_SIZE(pow) >> 3));
+	printf("slab size:%d [blocks]\nobjects per slab:%d\ncolour number:%d\n", (1 << pow), num, colour_num);
+}
+
 /* ----------------------------------------------------------- */
 /* -------------------------- CACHE -------------------------- */
 /* ----------------------------------------------------------- */
@@ -616,20 +636,5 @@ void kfree(const void *objp) {
 	kmem_cache_shrink(slabp->my_cache);
 }
 
-void test_estimate() {
-	unsigned pow;
-	unsigned num;
-	int size = 7;
-	int off = 0;
-
-	// off = 1
-	kmem_cache_estimate(&pow, &num, size, off);
-
-	unsigned colour_num = LEFT_OVER(num, pow, size, off) / CACHE_L1_LINE_SIZE + 1;
-
-	printf("left-over:%d\n1/8 of slab:%d\n", LEFT_OVER(num, pow, size, off),
-		(SLAB_SIZE(pow) >> 3));
-	printf("slab size:%d [blocks]\nobjects per slab:%d\ncolour number:%d\n", (1<<pow), num, colour_num);
-}
 	
 
