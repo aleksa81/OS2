@@ -331,7 +331,7 @@ void cache_sizes_init() {
 	/* initialize all size-N caches */
 	kmem_cache_t* cachep = (kmem_cache_t*)bmalloc(CACHE_SIZES_NUM * sizeof(kmem_cache_t));
 
-	/* this must not be nullptr */
+	/* must not be nullptr */
 	assert(cachep != nullptr);
 
 	int pow = MIN_CACHE_SIZE;
