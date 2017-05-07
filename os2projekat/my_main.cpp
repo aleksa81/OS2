@@ -4,6 +4,8 @@
 #include <chrono>
 #include "slab.h"
 
+#ifdef MY_MAIN
+
 #define _size 100
 
 using namespace std;
@@ -46,7 +48,7 @@ int main() {
 	kmem_init(space, BLOCK_NUMBER);
 	
 	char buffer[1024];
-	unsigned int size = 512;
+	unsigned int size = 7;
 
 	sprintf_s(buffer, 1024, "my size-%d", size);
 
@@ -80,16 +82,9 @@ int main() {
 
 	buddy_print();
 
-	//add_empty_slab(mc);
-	//add_empty_slab(mc);
-	//add_empty_slab(mc);
-	//add_empty_slab(mc);
-	//add_empty_slab(mc);
-	//add_empty_slab(mc);
-	//add_empty_slab(mc);
-	//add_empty_slab(mc);
-	//add_empty_slab(mc);
-
+	//test_estimate();
 
 	return 0;
 }
+
+#endif

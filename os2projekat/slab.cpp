@@ -4,6 +4,8 @@
 #include <windows.h> // CRITICAL_SECTION
 #include <mutex>
 
+//#define USE_CS
+
 kmem_cache_t* cache_head;
 
 unsigned start;
@@ -53,7 +55,16 @@ typedef struct kmem_cache_s {
 	size_t obj_size; 
 
 	/* per cache critical section (mutex) */
-	mutable CRITICAL_SECTION cache_cs; 
+#ifdef USE_CS
+	/* CS sync only threads of the one process */
+	/* CS is much faster then mutex */
+	/* Using EnterCriticalSection more then once one thread can't deadlock itself */
+	mutable CRITICAL_SECTION cache_cs;
+#endif
+#ifndef USE_CS
+	/* mutex is shared between processes */
+	std::mutex* cache_mutex;
+#endif 
 
 	unsigned int slab_size;
 	unsigned int num_of_slabs; 
@@ -149,6 +160,8 @@ void kmem_slab_info(kmem_slab_t* slabp) {
 kmem_slab_t* new_slab(kmem_cache_t* cachep) {
 	/* returns new slab for cache cachep */
 
+	/* Inside cachep CS */
+
 	if (cachep == nullptr) return nullptr;
 
 	kmem_slab_t* slabp;
@@ -156,21 +169,22 @@ kmem_slab_t* new_slab(kmem_cache_t* cachep) {
 	if (cachep->off_slab == 1) {
 		/* if slab descriptor is kept off slab */
 
-		slabp = (kmem_slab_t*)kmalloc(sizeof(kmem_slab_t) + cachep->objs_per_slab*sizeof(int));
+		slabp = (kmem_slab_t*)kmalloc(sizeof(kmem_slab_t) + (cachep->objs_per_slab)*sizeof(int));
 		if (slabp == nullptr) return nullptr;
 		slabp->objs = bmalloc(BLOCK_SIZE*cachep->slab_size);
 		if (slabp->objs == nullptr) return nullptr;
+		slabp->objs = (void*)((unsigned)slabp->objs + (cachep->colour_next)*CACHE_L1_LINE_SIZE);
 	}
 	else {
 		/* if slab descriptor is kept on slab */
 
 		slabp = (kmem_slab_t*)bmalloc(BLOCK_SIZE*cachep->slab_size);
 		if (slabp == nullptr) return nullptr;
+		slabp = (kmem_slab_t*)((unsigned)slabp + (cachep->colour_next)*CACHE_L1_LINE_SIZE);
 		slabp->objs = (void*)(unsigned)(FREE_OBJS(slabp) + cachep->objs_per_slab);
 	}
 
 	/* add offset to objs pointer */
-	slabp->objs = (void*)((unsigned)slabp->objs + (cachep->colour_next)*CACHE_L1_LINE_SIZE);
 
 	slabp->my_colour = cachep->colour_next;
 	cachep->colour_next = (++(cachep->colour_next) % cachep->colour_num);
@@ -202,7 +216,7 @@ void* slab_alloc(kmem_slab_t* slabp) {
 	if (slabp == nullptr) return nullptr;
 	if (slabp->free == -1) return nullptr;
 	void* objp = (void*)((int)slabp->objs + slabp->free*slabp->my_cache->obj_size);
-	slabp->free = *(FREE_OBJS(slabp) + slabp->free);
+	slabp->free = FREE_OBJS(slabp)[slabp->free];
 	slabp->inuse++;
 	return objp;
 }
@@ -219,8 +233,8 @@ void slab_free(kmem_slab_t* slabp, void* objp) {
 		slabp->my_cache->ctor(objp);
 	}
 
-	unsigned objn = ((unsigned)objp - (unsigned)slabp->objs) / slabp->my_cache->obj_size;
-	*(FREE_OBJS(slabp) + objn) = slabp->free;
+	unsigned objn = ((int)objp - (int)slabp->objs) / slabp->my_cache->obj_size;
+	FREE_OBJS(slabp)[objn] = slabp->free;
 	slabp->free = objn;
 	slabp->inuse--;
 }
@@ -254,14 +268,20 @@ void cache_constructor(kmem_cache_t* cachep, const char* name, size_t size,
 	cachep->num_of_active_objs = 0;
 
 	/* if object size is larger then treshold slab desc. is kept off slab */
-	cachep->off_slab = ((size > OBJECT_TRESHOLD) ? 1:0);
-
+	cachep->off_slab = ((size > OBJECT_TRESHOLD) ? 1 : 0);
+	
 	cachep->full = nullptr;
 	cachep->partial = nullptr;
 	cachep->empty = nullptr;
 
 	/* init critical section of this cache */
+#ifdef USE_CS
 	InitializeCriticalSection(&(cachep->cache_cs));
+#endif
+#ifndef USE_CS
+	/* placment new operator does not allocate memory */
+	cachep->cache_mutex = new std::mutex(), (std::mutex*)kmalloc(sizeof(std::mutex));
+#endif
 
 	/* puts new cache at the beginning of the cache list */
 	cachep->next_cache = cache_head;
@@ -290,6 +310,8 @@ void cache_constructor(kmem_cache_t* cachep, const char* name, size_t size,
 }
 
 void kmem_cache_estimate(unsigned* pow, unsigned* num, int size, int off) {
+	/* wastage is less then 1/8 of slab size */
+
 	*pow = 0;
 	*num = 1;
 
@@ -325,11 +347,18 @@ void cache_sizes_init() {
 }
 
 void enter_cs(kmem_cache_t* cachep) {
+#ifdef USE_CS
 	EnterCriticalSection(&cachep->cache_cs);
+#endif
+#ifndef USE_CS
+	std::lock_guard<std::mutex> lock(*cachep->cache_mutex);
+#endif
 }
 
 void leave_cs(kmem_cache_t* cachep) {
+#ifdef USE_CS
 	LeaveCriticalSection(&cachep->cache_cs);
+#endif
 }
 
 void process_objects_on_slab(kmem_slab_t* slabp, void(*function)(void *)) {
@@ -369,6 +398,7 @@ kmem_cache_t *kmem_cache_create(const char *name, size_t size,
 }
 
 void kmem_init(void *space, int block_num) {
+	//space = (void*)(((unsigned)space + 1) & ~(BLOCK_SIZE - 1));
 	cache_head = nullptr;
 	buddy_init(space, block_num);
 	start = (unsigned)space;
@@ -438,10 +468,14 @@ void* kmem_cache_alloc(kmem_cache_t *cachep) {
 		slabp = new_slab(cachep);
 		if (slabp == nullptr) cachep->error = 1;
 		else {
-			/* allocate one obj and move it to partial */
-
 			objp = slab_alloc(slabp);
-			slab_add_to_list(&cachep->partial, slabp);
+			if (cachep->objs_per_slab == 1) {
+				/* if slab containts only one object */
+
+				slab_add_to_list(&cachep->full, slabp);
+			}
+			else slab_add_to_list(&cachep->partial, slabp);
+
 			cachep->num_of_active_objs++;
 			cachep->num_of_slabs++;
 		}
@@ -450,6 +484,7 @@ void* kmem_cache_alloc(kmem_cache_t *cachep) {
 		/* allocate object from first partial slab */
 
 		slabp = cachep->partial;
+		assert(slabp->free != -1);
 		objp = slab_alloc(slabp);
 		if (slabp->free == -1) {
 			/* if the slab is now full move it to full list */
@@ -497,9 +532,6 @@ void kmem_cache_free(kmem_cache_t *cachep, void *objp) {
 	/* LEAVE CS */
 	leave_cs(cachep);
 
-	/* first leave CS to avoid deadlock */
-	kmem_cache_shrink(cachep);
-
 	return;
 }
 
@@ -511,7 +543,9 @@ void kmem_cache_destroy(kmem_cache_t *cachep) {
 	cache_remove_from_list(cachep);
 	cachep->growing = 0;
 	kmem_cache_shrink(cachep);
+#ifdef USE_CS
 	DeleteCriticalSection(&cachep->cache_cs);
+#endif
 	kfree(cachep);
 }
 
@@ -534,7 +568,7 @@ void kmem_cache_info(kmem_cache_t* cachep) {
 	int total_slabs = cachep->num_of_slabs;
 	int pages_per_slab = cachep->slab_size;
 
-	printf("\n%-.*s%7d%7d%7d%5d%5d%5d\n", CACHE_NAME_LEN, 
+	printf("%-.*s%7d%7d%7d%5d%5d%5d\n", CACHE_NAME_LEN, 
 										cachep->name, 
 										active_objs, 
 										total_objs,
@@ -565,7 +599,10 @@ int kmem_cache_error(kmem_cache_t *cachep) {
 void* kmalloc(size_t size) {
 	int pow = MIN_CACHE_SIZE;
 	while ((1 << pow) < size) pow++;
-	return kmem_cache_alloc(mem_buffer_array[pow - MIN_CACHE_SIZE].cs_cachep);
+
+	void* objp = kmem_cache_alloc(mem_buffer_array[pow - MIN_CACHE_SIZE].cs_cachep);
+
+	return objp;
 }
 
 void kfree(const void *objp) {
@@ -577,6 +614,22 @@ void kfree(const void *objp) {
 	/* deadlock free */
 	kmem_cache_free(slabp->my_cache, (void*)objp);
 	kmem_cache_shrink(slabp->my_cache);
+}
+
+void test_estimate() {
+	unsigned pow;
+	unsigned num;
+	int size = 7;
+	int off = 0;
+
+	// off = 1
+	kmem_cache_estimate(&pow, &num, size, off);
+
+	unsigned colour_num = LEFT_OVER(num, pow, size, off) / CACHE_L1_LINE_SIZE + 1;
+
+	printf("left-over:%d\n1/8 of slab:%d\n", LEFT_OVER(num, pow, size, off),
+		(SLAB_SIZE(pow) >> 3));
+	printf("slab size:%d [blocks]\nobjects per slab:%d\ncolour number:%d\n", (1<<pow), num, colour_num);
 }
 	
 

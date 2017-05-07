@@ -2,7 +2,7 @@
 
 #include <stdlib.h>
 #include "Buddy.h"
-#define BLOCK_SIZE (4096)
+//#define BLOCK_SIZE (4096)
 #define CACHE_L1_LINE_SIZE (64)
 #define SLAB_SIZE(n) ((1<<n)*BLOCK_SIZE)
 
@@ -12,7 +12,7 @@
 #define INSUFFICIENT_SLAB_SPACE(num, pow, size, off) \
 		((SLAB_SIZE(pow) - (1-off)*sizeof(kmem_slab_t)) < (num)*(size+(1-off)*sizeof(int)))
 
-#define FREE_OBJS(slabp) (int*)(((kmem_slab_t*)slabp)+1)
+#define FREE_OBJS(slabp) ((int*)(((kmem_slab_t*)slabp)+1))
 #define CACHE_NAME_LEN (20)
 #define OBJECT_TRESHOLD ((BLOCK_SIZE)>>3) // 1/8 of block size
 
@@ -21,6 +21,7 @@
 #define MIN_CACHE_SIZE (5)
 
 //#define SLAB_DEBUG
+//#define MY_MAIN
 
 typedef struct kmem_slab_s kmem_slab_t;
 typedef struct kmem_cache_s kmem_cache_t;
@@ -116,6 +117,8 @@ void process_objects_on_slab(kmem_slab_t* slabp, void(*function)(void *));
 
 /* Update btsm so that all blocks of slabp map to set_to */
 void btsm_update(kmem_slab_t* slabp, kmem_slab_t* set_to);
+
+void test_estimate();
 
 
 
