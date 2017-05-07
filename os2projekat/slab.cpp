@@ -69,7 +69,6 @@ typedef struct kmem_cache_s {
 	unsigned int slab_size;
 	unsigned int num_of_slabs; 
 	unsigned int objs_per_slab;
-	unsigned int error;
 	unsigned int colour_num;
 	unsigned int colour_next;
 	unsigned int num_of_active_objs;
@@ -77,6 +76,10 @@ typedef struct kmem_cache_s {
 
 	/* set it to 1 when cache is expanded, set it to 0 when cache is shrinked */
 	unsigned int growing;
+
+	/* set to 1 when destroy is called on cache with active objects */
+	/* set to 1 when cache can't allocate more memory for it's objects */
+	unsigned int error;
 
 	void(*ctor)(void*); 
 	void(*dtor)(void*); 
