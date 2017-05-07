@@ -20,7 +20,6 @@
 #define CACHE_SIZES_NUM (13)
 #define MIN_CACHE_SIZE (5)
 
-//#define SLAB_DEBUG
 //#define MY_MAIN
 
 typedef struct kmem_slab_s kmem_slab_t;
@@ -117,8 +116,3 @@ void process_objects_on_slab(kmem_slab_t* slabp, void(*function)(void *));
 
 /* Update btsm so that all blocks of slabp map to set_to */
 void btsm_update(kmem_slab_t* slabp, kmem_slab_t* set_to);
-
-void test_estimate(); // for debugging
-
-
-
