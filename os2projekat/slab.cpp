@@ -175,6 +175,8 @@ kmem_slab_t* new_slab(kmem_cache_t* cachep) {
 		if (slabp == nullptr) return nullptr;
 		slabp->objs = bmalloc(BLOCK_SIZE*cachep->slab_size);
 		if (slabp->objs == nullptr) return nullptr;
+
+		/* coulouring */
 		slabp->objs = (void*)((unsigned)slabp->objs + (cachep->colour_next)*CACHE_L1_LINE_SIZE);
 	}
 	else {
@@ -182,11 +184,11 @@ kmem_slab_t* new_slab(kmem_cache_t* cachep) {
 
 		slabp = (kmem_slab_t*)bmalloc(BLOCK_SIZE*cachep->slab_size);
 		if (slabp == nullptr) return nullptr;
+
+		/* coulouring */
 		slabp = (kmem_slab_t*)((unsigned)slabp + (cachep->colour_next)*CACHE_L1_LINE_SIZE);
 		slabp->objs = (void*)(unsigned)(FREE_OBJS(slabp) + cachep->objs_per_slab);
 	}
-
-	/* add offset to objs pointer */
 
 	slabp->my_colour = cachep->colour_next;
 	cachep->colour_next = (++(cachep->colour_next) % cachep->colour_num);
