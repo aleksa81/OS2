@@ -41,7 +41,7 @@ typedef struct kmem_slab_s {
 	struct kmem_cache_s* my_cache;
 	unsigned int my_colour; // offset
 	unsigned int inuse; // number of used objects 
-	unsigned int free; // pointer to first free object 
+	unsigned int free; // index of first free object 
 	void* objs; // pointer to first object 
 }kmem_slab_t;
 
