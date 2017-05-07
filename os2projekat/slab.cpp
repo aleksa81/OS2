@@ -59,7 +59,7 @@ typedef struct kmem_cache_s {
 #ifdef USE_CS
 	/* CS syncs only threads of the one process */
 	/* CS is faster then mutex */
-	/* Using EnterCriticalSection more then once on single thread can't cause deadlock */
+	/* Using EnterCriticalSection more then once within single thread can't cause deadlock */
 	mutable CRITICAL_SECTION cache_cs;
 #else
 	/* mutex is shared between processes */
