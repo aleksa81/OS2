@@ -258,7 +258,7 @@ void add_empty_slab(kmem_cache_t* cachep) {
 	kmem_slab_info(slabp);
 }
 
-void cache_constructor(kmem_cache_t* cachep, const char* name, size_t size,
+void kmem_cache_constructor(kmem_cache_t* cachep, const char* name, size_t size,
 	void(*ctor)(void*),
 	void(*dtor)(void*)) {
 
@@ -338,7 +338,7 @@ void cache_sizes_init() {
 
 		unsigned int bsize = (1 << pow);
 		sprintf_s(name, CACHE_NAME_LEN, "size-%d cache", bsize);
-		cache_constructor(cachep, name, bsize, cache_sizes_ctor, nullptr);
+		kmem_cache_constructor(cachep, name, bsize, cache_sizes_ctor, nullptr);
 		mem_buffer_array[i].cs_cachep = cachep;
 	}
 }
@@ -377,6 +377,16 @@ void btsm_update(kmem_slab_t* slabp, kmem_slab_t* set_to) {
 	}
 }
 
+int kmem_cache_check_name_availability(const char* name) {
+	/* Returns 0 if name is unavailable */
+
+	if (name == nullptr) return 0;
+	for (kmem_cache_t* i = cache_head; i != nullptr; i = i->next_cache) {
+		if (strcmp(name, i->name) == 0) return 0;
+	}
+	return 1;
+}
+
 /* ----------------------------------------------------------- */
 /* -------------------------- CACHE -------------------------- */
 /* ----------------------------------------------------------- */
@@ -385,10 +395,12 @@ kmem_cache_t *kmem_cache_create(const char *name, size_t size,
 	void(*ctor)(void *),
 	void(*dtor)(void *)) {
 
+	if (kmem_cache_check_name_availability(name) == 0) return nullptr;
+	
 	kmem_cache_t* my_cache = (kmem_cache_t*)kmalloc(sizeof(kmem_cache_t));
 	if (my_cache == nullptr) return nullptr; 
 
-	cache_constructor(my_cache, name, size, ctor, dtor);
+	kmem_cache_constructor(my_cache, name, size, ctor, dtor);
 
 	return my_cache;
 }

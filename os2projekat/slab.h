@@ -95,7 +95,7 @@ void enter_cs(kmem_cache_t* cachep);
 void leave_cs(kmem_cache_t* cachep);
 
 /* Constructs cache on the given address */
-void cache_constructor(kmem_cache_t* cachep, const char* name, size_t size,
+void kmem_cache_constructor(kmem_cache_t* cachep, const char* name, size_t size,
 	void(*ctor)(void*),
 	void(*dtor)(void*));
 
@@ -116,3 +116,6 @@ void process_objects_on_slab(kmem_slab_t* slabp, void(*function)(void *));
 
 /* Update btsm so that all blocks of slabp map to set_to */
 void btsm_update(kmem_slab_t* slabp, kmem_slab_t* set_to);
+
+/* Check if cachep->name is already taken */
+int kmem_cache_check_name_availability(const char* name);
