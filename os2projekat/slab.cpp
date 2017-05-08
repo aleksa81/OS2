@@ -433,6 +433,13 @@ kmem_cache_t *kmem_cache_create(const char *name, size_t size,
 }
 
 void kmem_init(void *space, int block_num) {
+
+	/* assert MUST be true, else program will crash during cache_cache's         */
+	/* first slab allocation(for size-32 cache) since it needs kmalloc           */
+	/* for slab descriptor and it*s making size-N caches which provide kmalloc.  */
+	
+	assert(sizeof(kmem_cache_t)<OBJECT_TRESHOLD);
+
 	int block_is_lost = 0;
 
 	/* align space with BLOCK_SIZE multiple and see if block is lost */
