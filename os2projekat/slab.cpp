@@ -13,10 +13,10 @@
 /* ------------------------- STRUCTS ------------------------ */
 /* ---------------------------------------------------------- */
 
-typedef struct mem_buffer {
+typedef struct size_N {
 	size_t cs_size;
 	kmem_cache_t* cs_cachep;
-} mem_buffer_t;
+} size_N_t;
 
 typedef struct kmem_slab_s {
 	struct kmem_slab_s* next_slab; // initially nullptr
@@ -88,19 +88,19 @@ static std::mutex size_N_mutex[CACHE_SIZES_NUM];
 static kmem_slab_t* block_to_slab_mapping[BLOCK_NUMBER] = { nullptr };
 
 /* static array of size-N caches */
-static mem_buffer_t mem_buffer_array[] = {
-	{ 32, nullptr }, // 5
-	{ 64, nullptr }, // 6
-	{ 128, nullptr }, // 7
-	{ 256, nullptr }, // 8
-	{ 512, nullptr }, // 9
-	{ 1024, nullptr }, // 10
-	{ 2048, nullptr }, // 11
-	{ 4096, nullptr }, // 12
-	{ 8192, nullptr }, // 13
-	{ 16384, nullptr }, // 14
-	{ 32768, nullptr }, // 15
-	{ 65536, nullptr }, // 16
+static size_N_t size_N_caches[] = {
+	{ 32, nullptr },     // 5
+	{ 64, nullptr },     // 6
+	{ 128, nullptr },    // 7
+	{ 256, nullptr },    // 8
+	{ 512, nullptr },    // 9
+	{ 1024, nullptr },   // 10
+	{ 2048, nullptr },   // 11
+	{ 4096, nullptr },   // 12
+	{ 8192, nullptr },   // 13
+	{ 16384, nullptr },  // 14
+	{ 32768, nullptr },  // 15
+	{ 65536, nullptr },  // 16
 	{ 131072, nullptr }  // 17
 };
 
@@ -366,7 +366,7 @@ void static_caches_init() {
 		cachep->mutex_placement = nullptr;
 
 		kmem_cache_constructor(cachep, name, bsize, cache_ctor, nullptr);
-		mem_buffer_array[i].cs_cachep = cachep;
+		size_N_caches[i].cs_cachep = cachep;
 
 		pow++;
 	}
@@ -697,7 +697,7 @@ void* kmalloc(size_t size) {
 	int pow = MIN_CACHE_SIZE;
 	while ((1 << pow) < size) pow++;
 
-	void* objp = kmem_cache_alloc(mem_buffer_array[pow - MIN_CACHE_SIZE].cs_cachep);
+	void* objp = kmem_cache_alloc(size_N_caches[pow - MIN_CACHE_SIZE].cs_cachep);
 
 	return objp;
 }
