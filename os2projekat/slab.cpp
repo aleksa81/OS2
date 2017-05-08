@@ -491,6 +491,7 @@ int kmem_cache_shrink(kmem_cache_t *cachep) {
 			/* - 3) btsm_update is called and those pointers are set to nullptr,     */
 			/*      where they should point to slab of cache [C].                    */
 			/* - 4) cache [C] is left with corrupted pointers to its slab.           */
+			/* - 5) assertion in kmem_cache_free() will be triggered.                */
 
 			//btsm_update(slabp, nullptr);
 
