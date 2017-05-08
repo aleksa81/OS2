@@ -4,13 +4,11 @@
 #include <chrono>
 #include "slab.h"
 
-#ifdef MY_MAIN
-
-#define _size 100
+#define _size 10
 
 using namespace std;
 
-extern kmem_cache_t* cache_head;
+//#define MY_MAIN
 
 void need_objs(kmem_cache_t* mc) {
 
@@ -21,14 +19,13 @@ void need_objs(kmem_cache_t* mc) {
 		if (i%10==0) std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 
-	std::this_thread::sleep_for(std::chrono::seconds(1));
-
 	//kmem_cache_info(mc);
 
 	for (int i = 0; i < _size; i++) {
 		kmem_cache_free(mc, objs[i]);
 		if (i % 10 == 0) std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
+
 }
 
 int ctor_cnt = 0;
@@ -42,13 +39,15 @@ void dtor(void*mem) {
 	//printf("dtor on object at address %d! #%d\n", (int)mem, dtor_cnt++);
 }
 
+#ifdef MY_MAIN
+
 int main() {
 	void *space = malloc(BLOCK_SIZE * BLOCK_NUMBER);
 
 	kmem_init(space, BLOCK_NUMBER);
 	
 	char buffer[1024];
-	unsigned int size = 7;
+	unsigned int size = 600;
 
 	sprintf_s(buffer, 1024, "my size-%d", size);
 
@@ -77,13 +76,11 @@ int main() {
 	t10.join();
 
 	kmem_cache_info(mc);
-
+	
 	kmem_cache_destroy(mc);
 
 	buddy_print();
-
-	//test_estimate();
-
+	
 	return 0;
 }
 

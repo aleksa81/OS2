@@ -1,6 +1,7 @@
 #include "BitMapTree.h"
 #include <stdlib.h>
 #include <assert.h>
+#include "slab.h"
 
 char bitmap[(1 << BUDDY_N + 1) / BITMAP_BITS_PER_WORD];
 int bitmap_words_count;

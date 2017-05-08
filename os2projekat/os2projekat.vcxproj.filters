@@ -41,10 +41,10 @@
     <ClCompile Include="my_main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="D:\Aleksa\OS2\projekat\test.cpp">
+    <ClCompile Include="D:\Aleksa\OS2\projekat\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="D:\Aleksa\OS2\projekat\main.cpp">
+    <ClCompile Include="D:\Aleksa\OS2\projekat\test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -2,6 +2,7 @@
 #include "BitMapTree.h"
 #include <stdio.h>
 #include <assert.h>
+#include "slab.h"
 #include <mutex>
 #include <cmath>
 
