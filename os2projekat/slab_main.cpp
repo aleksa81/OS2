@@ -8,7 +8,7 @@
 
 using namespace std;
 
-//#define MY_MAIN
+//#define SLAB_MAIN
 
 void need_objs(kmem_cache_t* mc) {
 
@@ -39,7 +39,7 @@ void dtor(void*mem) {
 	//printf("dtor on object at address %d! #%d\n", (int)mem, dtor_cnt++);
 }
 
-#ifdef MY_MAIN
+#ifdef SLAB_MAIN
 
 int main() {
 	void *space = malloc(BLOCK_SIZE * BLOCK_NUMBER);

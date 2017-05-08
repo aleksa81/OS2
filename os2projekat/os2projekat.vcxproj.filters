@@ -38,13 +38,16 @@
     <ClCompile Include="slab.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="my_main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="D:\Aleksa\OS2\projekat\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="D:\Aleksa\OS2\projekat\test.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="buddy_main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="slab_main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

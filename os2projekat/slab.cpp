@@ -22,19 +22,19 @@ typedef struct kmem_slab_s {
 	struct kmem_slab_s* next_slab; // initially nullptr
 	struct kmem_slab_s* prev_slab; // initially nullptr
 	struct kmem_cache_s* my_cache;
-	unsigned int my_colour; // offset
-	unsigned int inuse; // number of used objects 
-	unsigned int free; // index of first free object 
-	void* objs; // pointer to first object 
+	unsigned int my_colour;        // offset
+	unsigned int inuse;            // number of used objects 
+	unsigned int free;             // index of first free object 
+	void* objs;                    // pointer to first object 
 }kmem_slab_t;
 
 typedef struct kmem_cache_s {
 	struct kmem_cache_s* next_cache; // initially nullptr
 	struct kmem_cache_s* prev_cache; // initially nullptr
 
-	kmem_slab_t* full; // initially nullptr
-	kmem_slab_t* partial; // initially nullptr
-	kmem_slab_t* empty; // initially nullptr
+	kmem_slab_t* full;               // initially nullptr
+	kmem_slab_t* partial;            // initially nullptr
+	kmem_slab_t* empty;              // initially nullptr
 
 	size_t obj_size; 
 
@@ -53,8 +53,8 @@ typedef struct kmem_cache_s {
 	/* set it to 1 when cache is expanded, set it to 0 when cache is shrinked */
 	unsigned int growing;
 
-	/* set to 1 when destroy is called on cache with active objects */
-	/* set to 1 when cache can't allocate more memory for it's objects */
+	/* set to 1 when destroy is called on cache with active objects          */
+	/* set to 1 when cache can't allocate more memory for it's objects       */
 	unsigned int error;
 
 	void(*ctor)(void*); 

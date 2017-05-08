@@ -156,8 +156,9 @@
     <ClCompile Include="Buddy.cpp" />
     <ClCompile Include="D:\Aleksa\OS2\projekat\main.cpp" />
     <ClCompile Include="D:\Aleksa\OS2\projekat\test.cpp" />
+    <ClCompile Include="buddy_main.cpp" />
     <ClCompile Include="slab.cpp" />
-    <ClCompile Include="my_main.cpp" />
+    <ClCompile Include="slab_main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
