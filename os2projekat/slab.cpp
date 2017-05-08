@@ -3,8 +3,7 @@
 #include <assert.h>
 #include <mutex>
 
-/* for size-N caches (mem_buffer_array must be consistent!) */
-
+/* for size-N caches mem_buffer_array must follow those values! */
 #define CACHE_SIZES_NUM (13)
 #define MIN_CACHE_SIZE (5)
 
