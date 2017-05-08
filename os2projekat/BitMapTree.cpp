@@ -3,9 +3,9 @@
 #include <assert.h>
 #include "slab.h"
 
-char bitmap[(1 << BUDDY_N + 1) / BITMAP_BITS_PER_WORD];
-int bitmap_words_count;
-int bitmap_bits_count;
+static char bitmap[(1 << BUDDY_N + 1) / BITMAP_BITS_PER_WORD];
+static int bitmap_words_count;
+static int bitmap_bits_count;
 
 extern int buddy_N;
 

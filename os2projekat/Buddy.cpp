@@ -8,9 +8,9 @@
 
 int buddy_N;
 void* buddy_space;
-std::mutex buddy_mutex;
+static std::mutex buddy_mutex;
 
-int buddy_blocks[BUDDY_N +1];
+static int buddy_blocks[BUDDY_N +1];
 
 void* block(int n) {
 	/* returns the pointer to a block number n */
