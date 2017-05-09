@@ -512,7 +512,7 @@ int kmem_cache_shrink(kmem_cache_t *cachep) {
 			process_objects_on_slab(slabp, cachep->dtor);
 
 			if (cachep->off_slab == 1) {
-				/* if slab descriptor is kept on slab */
+				/* if slab descriptor is kept off slab */
 
 				bfree(slabp->objs);
 				kfree(slabp);
