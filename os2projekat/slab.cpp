@@ -555,7 +555,6 @@ void* kmem_cache_alloc(kmem_cache_t *cachep) {
 	}
 
 	if (slabp == nullptr) cachep->error = 1;
-
 	else {
 		/* slabp is in partial */
 
@@ -564,8 +563,8 @@ void* kmem_cache_alloc(kmem_cache_t *cachep) {
 			slab_remove_from_list(&cachep->partial, slabp);
 			slab_add_to_list(&cachep->full, slabp);
 		}
+		cachep->num_of_active_objs++;
 	}
-	cachep->num_of_active_objs++;
 
 	/* LEAVE CS */
 	leave_cs(cachep);
