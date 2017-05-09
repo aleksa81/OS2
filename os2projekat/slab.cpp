@@ -580,10 +580,6 @@ void kmem_cache_free(kmem_cache_t *cachep, void *objp) {
 
 	kmem_slab_t* slabp = block_to_slab_mapping[blockn];
 
-	if (slabp == nullptr) {
-		printf("ERROR za cache %s\n", cachep->name);
-	}
-
 	/* must not be nullptr */
 	assert(slabp != nullptr);
 
