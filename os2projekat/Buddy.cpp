@@ -137,7 +137,7 @@ void* buddy_alloc(int i) {
 		/* if there are blocks that are off limit within chosen block */
 		if (buddy_blocks[j] + (1 << j) - 1 >= buddy_blocks_num) return nullptr;
 		
-		/* return pointer to allocated memory and update buddy arrays */
+		/* return pointer to allocated memory and update buddy structs */
 		blockn = buddy_remove_block(buddy_blocks[i], i);
 		void* mem = block(blockn);
 		bitmapTree_alloc(blockn, i);
@@ -162,6 +162,7 @@ int buddy_dealloc(void * blockp) {
 
 	int block_size = bitmapTree_get_block_size(node);
 
+	/* merge buddies */
 	while (node > 0 && bitmapTree_is_buddy_free(node)) {
 
 		buddy_remove_block
