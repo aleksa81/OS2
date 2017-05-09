@@ -6,11 +6,16 @@
 #include <mutex>
 #include <cmath>
 
-int buddy_N;
-void* buddy_space;
+#define NEXT(X) *(int*)block(X)      // reference
+#define PREV(X) *((int*)block(X)+1)  // reference
+
+static void* buddy_space;
+static unsigned buddy_blocks_num;
 static std::mutex buddy_mutex;
 
-static int buddy_blocks[BUDDY_N +1];
+static unsigned buddy_N;
+
+static int* buddy_blocks;
 
 void* block(int n) {
 	/* returns the pointer to a block number n */
@@ -20,27 +25,65 @@ void* block(int n) {
 	else return nullptr;
 }
 
-void buddy_init(void * space, int n){
+void* buddy_init(void * space, int *block_number){
 
-	buddy_space = space;
-	buddy_N = BUDDY_N;
-	bitmapTree_init();
+	/* assert MUST be true because on start of each block         */
+	/* there are two pointers (ints) used for linking free blocks */
 
-	for (int i = 0; i < buddy_N; i++) buddy_blocks[i] = -1;
-	buddy_blocks[buddy_N] = 0;
-	NEXT(0) = -1;
+	assert(BLOCK_SIZE > 2 * sizeof(int));
+
+	buddy_N = 0;
+	while ((1 << buddy_N) < *block_number) buddy_N++;
+
+	buddy_blocks = (int*)space;
+
+	void* filled = bitmapTree_init((void*)((buddy_blocks + buddy_N + 1)), buddy_N);
+
+	/* align with BLOCK_SIZE multiple */
+	filled = (void*)(((unsigned)filled + BLOCK_SIZE - 1) & ~(BLOCK_SIZE - 1));
+
+	/* calculate how many blocks are lost for buddy and bitmap structs */
+	unsigned lost_blocks = ((unsigned)filled - (unsigned)space) / BLOCK_SIZE;
+
+	/* buddy blocks start from this address */
+	buddy_space = filled;
+
+	(*block_number) = (*block_number) - lost_blocks;
+
+	buddy_blocks_num = *block_number;
+
+	for (int i = 0; i <= buddy_N; i++) buddy_blocks[i] = -1;
+	buddy_add_block(0, buddy_N);
+
+	/* return starting address of blocks to kmem_init() */
+	/* it's needed for block to slab mapping            */
+	return filled;
 }
 
-void buddy_remove_block(int block_num, int exp) {
-	/* O(number of blocks) */
+int buddy_remove_block(int blockn, int pow) {
+	/* O(1) */
 
-	int *head = &buddy_blocks[exp];
-	while (*head != block_num) {
-		head = &NEXT(*head);
-		/* must not happen ! */
-		assert(*head != -1);
-	}
-	*head = NEXT(*head);
+	assert(blockn >= 0 && blockn < buddy_blocks_num);
+	assert(pow >= 0 && pow<=buddy_N);
+
+	if (NEXT(blockn) != -1) PREV(NEXT(blockn)) = PREV(blockn);
+	if (PREV(blockn) != -1) NEXT(PREV(blockn)) = NEXT(blockn);
+
+	/* if it was the first block in list */
+	if (PREV(blockn) == -1) buddy_blocks[pow] = NEXT(blockn);
+	return blockn;
+}
+
+void buddy_add_block(int blockn, int pow) {
+	/* O(1) */
+
+	assert(blockn >= 0 && blockn < buddy_blocks_num);
+	assert(pow >= 0 && pow<=buddy_N);
+
+	PREV(blockn) = -1;
+	NEXT(blockn) = buddy_blocks[pow];
+	if (buddy_blocks[pow] != -1) PREV(buddy_blocks[pow]) = blockn;
+	buddy_blocks[pow] = blockn;
 }
 
 void* bmalloc(int size_in_bytes) {
@@ -50,8 +93,9 @@ void* bmalloc(int size_in_bytes) {
 	return buddy_alloc(pow);
 }
 
-int bfree(void* block_ptr) {
-	return buddy_dealloc(block_ptr);
+int bfree(void* blockp) {
+	if (blockp != nullptr) return buddy_dealloc(blockp);
+	else return 1;
 }
 
 void* buddy_alloc(int i) {
@@ -59,105 +103,91 @@ void* buddy_alloc(int i) {
 
 	std::lock_guard<std::mutex> lock(buddy_mutex);
 
+	int blockn;
+
 	if (i <= buddy_N) {
 		int j = i;
 
-		/* find bigger block if it exists */
+		/* find block to split if needed */
 		while (j <= buddy_N && buddy_blocks[j] == -1) j++;
 
-		/* if it doesn't exist return an error */
-		if (j > buddy_N) {
-			//printf("BUDDY: Out of memory error!");
-			return nullptr;
-		}
-
+		/* if not enough memory return nullptr */
+		if (j > buddy_N) return nullptr;
+		
 		/* split segment(s) in two halves */
 		while (i != j) {
 
-			buddy_blocks[j - 1] = buddy_blocks[j];
-
-			/* it now points to next block of it' size */
-			buddy_blocks[j] = NEXT(buddy_blocks[j]);
-
-			/* link two children blocks */
-			if (buddy_blocks[j - 1] + (1 << (j - 1)) >= BLOCK_NUMBER) {
-
-				/* if the second block(buddy) is off limit, fake alloc it */
-#ifdef BUDDY_DEBUG
-				printf("BUDDY: skipping linkage!\n");
-#endif
-				bitmapTree_alloc(buddy_blocks[j - 1] + (1 << j - 1), j - 1);
-				NEXT(buddy_blocks[j - 1]) = -1;
+			blockn = buddy_remove_block(buddy_blocks[j], j);
+	
+			if (blockn + (1 << (j - 1)) >= buddy_blocks_num) {
+				/* if the beggining of the second half of divided block is off limit, fake alloc it */
+				bitmapTree_alloc(blockn + (1 << j - 1), j - 1);
 			}
 			else {
-				NEXT(buddy_blocks[j - 1]) = (int)(buddy_blocks[j - 1] + (1 << j - 1));
-				NEXT(buddy_blocks[j - 1] + (1 << j - 1)) = -1;
+				/* else, add it to appropriate list of free blocks */
+				buddy_add_block(blockn + (1 << j - 1), j - 1);
 			}
+
+			/* add first half of divided block to appropriate list of free blocks */
+			buddy_add_block(blockn, j - 1);
 			
-			/* update variables for next iteration */
 			j--;
 		}
 
 		/* if there are blocks that are off limit within chosen block */
-		if (buddy_blocks[j] + (1 << j) - 1 >= BLOCK_NUMBER) {
-#ifdef BUDDY_DEBUG
-			printf("BUDDY: bad block!\n");
-#endif
-			return nullptr;
-		}
-
+		if (buddy_blocks[j] + (1 << j) - 1 >= buddy_blocks_num) return nullptr;
+		
 		/* return pointer to allocated memory and update buddy arrays */
-		void* mem = block(buddy_blocks[i]);
-		bitmapTree_alloc(buddy_blocks[i], i);
-		buddy_blocks[i] = NEXT(buddy_blocks[i]);
+		blockn = buddy_remove_block(buddy_blocks[i], i);
+		void* mem = block(blockn);
+		bitmapTree_alloc(blockn, i);
 		return mem;
 	}
 
-	/* if requested memory is larger then 2^__BUDDY_N */
-	//printf("BUDDY: Out of memory error!");
 	return nullptr;
 }
 
-int buddy_dealloc(void * block_ptr) {
+int buddy_dealloc(void * blockp) {
 	/* O(number of blocks) */
 
 	std::lock_guard<std::mutex> lock(buddy_mutex);
 
-	if (block_ptr == nullptr) return 1;
-
 	/* block_num is a number of the first block in the chunk of memory pointed by block_ptr */
-	int block_num = (int)(((char*)block_ptr - buddy_space) / BLOCK_SIZE);
+	int block_num = (int)(((char*)blockp - buddy_space) / BLOCK_SIZE);
 
 	/* check block_ptr validity */
 	assert(block_num >= 0 && block_num < (1 << buddy_N));
 
-	/* index = f(block_num, size of memory block that is beeing deallocated) */
-	int index = bitmapTree_dealloc(block_num);
+	int node = bitmapTree_dealloc(block_num);
 
-	/* size of block that is beeing deallocated */
-	int block_size = bitmapTree_get_block_size(index);
+	int block_size = bitmapTree_get_block_size(node);
 
-	/* while it's possible to merge two buddies */
-	while (index > 0 && bitmapTree_is_buddy_free(index)) {
+	while (node > 0 && bitmapTree_is_buddy_free(node)) {
 
-		/* delete buddy from free blocks list */
-		buddy_remove_block(bitmapTree_get_block(bitmapTree_get_buddy(index)), block_size);
+		buddy_remove_block
+		(
+			bitmapTree_get_block(bitmapTree_get_buddy(node)), 
+			block_size
+		);
 
-		/* update variables for next iteration */
 		block_size++;
-		index = bitmapTree_get_parent(index);
-		block_num = bitmapTree_get_block(index);
+		node = PARENT(node);
+
+		assert(bitmapTree_get_node(node) == PARTLY_FREE);
+		bitmapTree_set_node(node, FREE);
+
+		block_num = bitmapTree_get_block(node);
 	}
 
 	/* link new memory block to the list of free blocks */
-	NEXT(block_num) = buddy_blocks[block_size];
-	buddy_blocks[block_size] = block_num;
+	buddy_add_block(block_num, block_size);
+
 	return 0;
 }
 
 void buddy_print() {
 	/* prints buddy info */
-	//bitmapTree_print();
+	bitmapTree_print();
 
 	for (int i = buddy_N; i >= 0; i--) {
 		printf("2^%d : %d", i, buddy_blocks[i]);

@@ -4,7 +4,6 @@
 #include "Buddy.h"
 #include <mutex>
 #define BLOCK_SIZE (4096)
-#define BLOCK_NUMBER (1000)
 #define CACHE_L1_LINE_SIZE (64)
 #define SLAB_SIZE(n) ((1<<n)*BLOCK_SIZE)
 

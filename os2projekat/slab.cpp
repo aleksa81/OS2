@@ -85,7 +85,7 @@ static std::mutex cache_cache_mutex;
 static std::mutex size_N_mutex[CACHE_SIZES_NUM];
 
 /* all pointers are set to nullptr at the beginning */
-static kmem_slab_t* block_to_slab_mapping[BLOCK_NUMBER] = { nullptr };
+static kmem_slab_t** block_to_slab_mapping;
 
 /* static array of size-N caches */
 static size_N_t size_N_caches[] = {
@@ -103,6 +103,8 @@ static size_N_t size_N_caches[] = {
 	{ 65536, nullptr },  // 16
 	{ 131072, nullptr }  // 17
 };
+
+int block_N;
 
 /* ---------------------------------------------------------- */
 /* -------------------------- UTIL -------------------------- */
@@ -392,7 +394,7 @@ void process_objects_on_slab(kmem_slab_t* slabp, void(*function)(void *)) {
 
 void btsm_update(kmem_slab_t* slabp, kmem_slab_t* set_to) {
 	if (slabp == nullptr) return;
-	int blockn = ((((int)slabp->objs - start) & ~(BLOCK_SIZE - 1)) >> BLOCK_N);
+	int blockn = ((((int)slabp->objs - start) & ~(BLOCK_SIZE - 1)) >> block_N);
 	int limit = blockn + slabp->my_cache->slab_size;
 
 	for (int i = blockn; i < limit; i++) {
@@ -443,17 +445,28 @@ void kmem_init(void *space, int block_num) {
 	int block_is_lost = 0;
 
 	/* align space with BLOCK_SIZE multiple and see if block is lost */
-	/*if ((unsigned(space) & (BLOCK_SIZE - 1)) > 0) {
-		printf("FU malloc\n");
+	if ((unsigned(space) & (BLOCK_SIZE - 1)) > 0) {
 		block_is_lost = 1;
 	}
-	space = (void*)(((unsigned)space + BLOCK_SIZE-1) & ~(BLOCK_SIZE - 1));*/
+	space = (void*)(((unsigned)space + BLOCK_SIZE-1) & ~(BLOCK_SIZE - 1));
 
 	cache_head = nullptr;
+	block_N = 0;
+	while ((1 << block_N) < BLOCK_SIZE) block_N++;
 
-	buddy_init(space, block_num );
+	int buddy_num_of_blocks = block_num - block_is_lost;
+
+	/* aligned space is given to buddy_init */
+	space = buddy_init(space, &buddy_num_of_blocks);
 
 	start = (unsigned)space;
+
+	block_to_slab_mapping = (kmem_slab_t**)bmalloc(sizeof(kmem_slab_t*)*buddy_num_of_blocks);
+
+	for (int i = 0; i < buddy_num_of_blocks; i++) {
+		block_to_slab_mapping[i] = nullptr;
+	}
+
 	static_caches_init();
 }
 
@@ -566,7 +579,7 @@ void kmem_cache_free(kmem_cache_t *cachep, void *objp) {
 	/* ENTER CS */
 	enter_cs(cachep);
 
-	int blockn = ((((int)objp - start) & ~(BLOCK_SIZE - 1)) >> BLOCK_N);
+	int blockn = ((((int)objp - start) & ~(BLOCK_SIZE - 1)) >> block_N);
 
 	kmem_slab_t* slabp = block_to_slab_mapping[blockn];
 
@@ -705,7 +718,7 @@ void* kmalloc(size_t size) {
 void kfree(const void *objp) {
 	if (objp == nullptr) return;
 
-	int blockn = ((((int)objp - start) & ~(BLOCK_SIZE - 1)) >> BLOCK_N);
+	int blockn = ((((int)objp - start) & ~(BLOCK_SIZE - 1)) >> block_N);
 	kmem_slab_t* slabp = block_to_slab_mapping[blockn];
 
 	assert(slabp != nullptr);

@@ -25,7 +25,6 @@ void need_objs(kmem_cache_t* mc) {
 		kmem_cache_free(mc, objs[i]);
 		if (i % 10 == 0) std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
-
 }
 
 int ctor_cnt = 0;

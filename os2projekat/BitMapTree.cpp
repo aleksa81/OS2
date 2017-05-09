@@ -3,92 +3,97 @@
 #include <assert.h>
 #include "slab.h"
 
-static char bitmap[(1 << BUDDY_N + 1) / BITMAP_BITS_PER_WORD];
-static int bitmap_words_count;
-static int bitmap_bits_count;
+static unsigned buddy_N;
 
-extern int buddy_N;
+static char* bitmapTree;
+static int bitmapTree_words_count;
+static int bitmapTree_node_count;
 
-void bitmapTree_init() {
+void* bitmapTree_init(void* space, unsigned buddy_pow) {
 	/* O(number of blocks) */
 
-	bitmap_words_count = sizeof(bitmap);
-	bitmap_bits_count = ((1 << buddy_N + 1) - 1);
+	buddy_N = buddy_pow;
+	bitmapTree = (char*)space;
 
-	printf("Init\n");
-	for (int i = 0; i < bitmap_words_count; i++) {
-		bitmap[i] = 0;
+	bitmapTree_words_count = ((1 << buddy_N + 1) * NODE_BITS) / WORD_BITS;
+	bitmapTree_node_count = ((1 << buddy_N + 1) - 1);
+
+	for (int i = 0; i < bitmapTree_words_count; i++) {
+		bitmapTree[i] = 0;
 	}
+
+	return (void*)(bitmapTree + bitmapTree_words_count);
 }
 
-short bitmapTree_getbit(unsigned index) {
+short bitmapTree_get_node(unsigned index) {
 	/* O(1) */
 
-	assert(index < bitmap_bits_count);
-	int word = index / BITMAP_BITS_PER_WORD;
-	int bit = index % BITMAP_BITS_PER_WORD;
-	return (bitmap[word] >> (BITMAP_BITS_PER_WORD - 1 - bit)) & 1;
+	assert(index < bitmapTree_node_count);
+
+	int word = index*NODE_BITS / WORD_BITS;
+	int node = (index*NODE_BITS) % WORD_BITS;
+	return (bitmapTree[word] >> (WORD_BITS - NODE_BITS - node)) & ((1<<NODE_BITS)-1);
 }
 
-void bitmapTree_setbit(unsigned index, short value) {
+void bitmapTree_set_node(unsigned index, short value) {
 	/* O(1) */
 
-	assert(index < bitmap_bits_count);
-	assert(value == 0 || value == 1);
-	char mask = 1 << (BITMAP_BITS_PER_WORD - index % BITMAP_BITS_PER_WORD - 1);
-	if (value == 0) {
-		mask = ~ mask;
-		bitmap[index/BITMAP_BITS_PER_WORD] &= mask;
-	}
-	else bitmap[index / BITMAP_BITS_PER_WORD] |= mask;
+	assert(index < bitmapTree_node_count);
+	assert(value >=0 && value < (1<<NODE_BITS));
+
+	int word = index*NODE_BITS / WORD_BITS;
+	int node = (index*NODE_BITS) % WORD_BITS;
+
+	char clear_value = ~((0 | ((1 << NODE_BITS) - 1)) << (WORD_BITS - NODE_BITS - node));
+	char set_value = ((0 | value) << (WORD_BITS - NODE_BITS - node));
+
+	bitmapTree[word] &= clear_value;
+	bitmapTree[word] |= set_value;
 }
 
 int bitmapTree_get_block_size(unsigned index) {
 	/* O( log(number of blocks) ) */
 
-	assert(index < bitmap_bits_count);
+	assert(index < bitmapTree_node_count);
 	int i = 1;
 	while (index >((1 << i) - 2)) i++;
 	return buddy_N - i + 1;
 }
 
-int bitmapTree_dealloc(unsigned block_num) {
+int bitmapTree_dealloc(unsigned blockn) {
 	/* O( log(number of blocks) ) */
 
-	assert(block_num < (1 << buddy_N));
-	int leaf = block_num + (1 << buddy_N) - 1;
-	while (bitmapTree_getbit(leaf) != 1) {
-		leaf = bitmapTree_get_parent(leaf);
+	assert(blockn < (1 << buddy_N));
+
+	int leaf = blockn + (1 << buddy_N) - 1;
+	while (bitmapTree_get_node(leaf) != TAKEN) {
+		assert(bitmapTree_get_node(leaf) == FREE);
+		leaf = PARENT(leaf);
 	}
-	assert(leaf >= 0);
-	bitmapTree_setbit(leaf, 0);
+	bitmapTree_set_node(leaf, FREE);
 	return leaf;
 }
 
-void bitmapTree_alloc(unsigned block_num, int pow) {
+void bitmapTree_alloc(unsigned blockn, int pow) {
 	/* O( log(number of blocks) ) */
 
-	assert(block_num < (1 << buddy_N));
-	int leaf = block_num + (1 << buddy_N) - 1;
-	while (bitmapTree_get_block_size(leaf) < pow) {
-		leaf = bitmapTree_get_parent(leaf);
+	assert(blockn < (1 << buddy_N));
+	assert(pow >= 0 && pow <= buddy_N);
+
+	int leaf = blockn + (1 << buddy_N) - 1;
+	int hop;
+	for (hop = 0; hop < pow; hop++) {
+		assert(bitmapTree_get_node(leaf) == FREE);
+		leaf = PARENT(leaf);
 	}
-	assert(leaf >= 0);
-	bitmapTree_setbit(leaf,1);
-}
+	bitmapTree_set_node(leaf, TAKEN);
 
-int bitmapTree_is_subtree_free(unsigned index) {
-	/* O(number of blocks) */
-
-	if (index >= bitmap_bits_count) return 1;
-	if (bitmapTree_getbit(index) == 1) return 0;
-	else return bitmapTree_is_subtree_free((index << 1) + 1) && bitmapTree_is_subtree_free((index << 1) + 2);
-}
-
-int bitmapTree_get_parent(unsigned index) {
-	/* O(1) */
-
-	return (index - 1) >> 1;
+	while (leaf > 0) {
+		assert(bitmapTree_get_node(PARENT(leaf)) != TAKEN);
+		if (bitmapTree_get_node(PARENT(leaf)) == PARTLY_FREE) break;
+		bitmapTree_set_node(PARENT(leaf), PARTLY_FREE);
+		leaf = PARENT(leaf);
+	}
 }
 
 int bitmapTree_get_buddy(unsigned index) {
@@ -99,17 +104,17 @@ int bitmapTree_get_buddy(unsigned index) {
 }
 
 int bitmapTree_is_buddy_free(unsigned index) {
-	/* O(number of blocks) */
+	/* O(1) */
 
-	return bitmapTree_is_subtree_free(bitmapTree_get_buddy(index));
+	return bitmapTree_get_node(bitmapTree_get_buddy(index)) == FREE;
 }
 
 int bitmapTree_get_block(unsigned index) {
 	/* O( log(number of blocks) ) */
 
 	int i = index;
-	while (((i << 1) + 1) < bitmap_bits_count) {
-		i = (i << 1) + 1;
+	while (LEFT(i) < bitmapTree_node_count) {
+		i = LEFT(i);
 	}
 	return i - (1 << buddy_N) + 1;
 }
@@ -118,12 +123,12 @@ void bitmapTree_print() {
 	/* O(number of blocks) */
 
 	int exp = 0;
-	for (int i = 0; i < bitmap_bits_count; i++) {
+	for (int i = 0; i < bitmapTree_node_count; i++) {
 		if (i == ((1 << exp) - 1)) {
 			exp++;
 			printf("| ");
 		}
-		printf("%d ", bitmapTree_getbit(i));
+		printf("%d ", bitmapTree_get_node(i));
 	}
 	printf("|\n");
 }
