@@ -476,8 +476,6 @@ int kmem_cache_shrink(kmem_cache_t *cachep) {
 	/* ENTER CS */
 	enter_cs(cachep);
 
-	int num_of_freed_blocks = 0;
-
 	if (cachep->growing == 1) {
 		cachep->growing = 0;
 
@@ -485,42 +483,42 @@ int kmem_cache_shrink(kmem_cache_t *cachep) {
 		leave_cs(cachep);
 		return 0;
 	}
-	if (cachep->empty != nullptr) {
+
+	int num_of_freed_blocks = 0;
+
+	while (cachep->empty != nullptr) {
 		/* free all empty slabs */
 
-		while (cachep->empty != nullptr) {
+		kmem_slab_t* slabp = slab_remove_from_list(&cachep->empty, cachep->empty);
+		cachep->num_of_slabs--;
 
-			kmem_slab_t* slabp = slab_remove_from_list(&cachep->empty, cachep->empty);
-			cachep->num_of_slabs--;
+		/*              --- block to slab mapping update ---                     */
 
-			/*         --- block to slab mapping update ---                          */
+		/* !!!  if used, MUST be before bfree to avoid data corruption:  !!!     */
 
-			/* !!!  if used, MUST be before bfree to avoid data corruption:  !!!     */
+		/* - POSSIBLE SCENARIO (btsm_update after bfree):                        */
+		/* - 1) bfree is called and blocks are freed.                            */
+		/* - 2) some other thread allocate those blocks for cache [C],           */
+		/*      and sets pointers to its slab.                                   */
+		/* - 3) btsm_update is called and those pointers are set to nullptr,     */
+		/*      where they should point to slab of cache [C].                    */
+		/* - 4) cache [C] is left with corrupted pointers to its slab.           */
+		/* - 5) assertion in kmem_cache_free() will be triggered.                */
 
-			/* - POSSIBLE SCENARIO (btsm_update after bfree):                        */
-			/* - 1) bfree is called and blocks are freed.                            */
-			/* - 2) some other thread allocate those blocks for cache [C],           */
-			/*      and sets pointers to its slab.                                   */
-			/* - 3) btsm_update is called and those pointers are set to nullptr,     */
-			/*      where they should point to slab of cache [C].                    */
-			/* - 4) cache [C] is left with corrupted pointers to its slab.           */
-			/* - 5) assertion in kmem_cache_free() will be triggered.                */
+		//btsm_update(slabp, nullptr);
 
-			//btsm_update(slabp, nullptr);
+		/* destroy all objects on this slab */
+		process_objects_on_slab(slabp, cachep->dtor);
 
-			/* destroy all objects on this slab */
-			process_objects_on_slab(slabp, cachep->dtor);
+		if (cachep->off_slab == 1) {
+			/* if slab descriptor is kept off slab */
 
-			if (cachep->off_slab == 1) {
-				/* if slab descriptor is kept off slab */
-
-				bfree(slabp->objs);
-				kfree(slabp);
-			}
-			else bfree(slabp);
-			
-			num_of_freed_blocks += cachep->slab_size;
+			bfree(slabp->objs);
+			kfree(slabp);
 		}
+		else bfree(slabp);
+			
+		num_of_freed_blocks += cachep->slab_size;
 	}
 
 	/* LEAVE CS */
