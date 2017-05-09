@@ -18,6 +18,8 @@ static unsigned buddy_N;
 static int* buddy_blocks;
 
 void* block(int n) {
+	/* O(1) */
+
 	/* returns the pointer to a block number n */
 	if (n >= 0 && n <= 1 << buddy_N) {
 		return (void*)((int)buddy_space + n*BLOCK_SIZE);
@@ -87,6 +89,8 @@ void buddy_add_block(int blockn, int pow) {
 }
 
 void* bmalloc(int size_in_bytes) {
+	/* O(log(number of blocks)) */
+
 	assert(size_in_bytes > 0);
 	int pow = 0;
 	while ((1<<pow)*BLOCK_SIZE < size_in_bytes) pow++;
@@ -94,6 +98,8 @@ void* bmalloc(int size_in_bytes) {
 }
 
 int bfree(void* blockp) {
+	/* O(log(number of blocks)) */
+
 	if (blockp != nullptr) return buddy_dealloc(blockp);
 	else return 1;
 }

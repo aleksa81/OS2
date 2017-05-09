@@ -10,7 +10,6 @@ static int bitmapTree_words_count;
 static int bitmapTree_node_count;
 
 void* bitmapTree_init(void* space, unsigned buddy_pow) {
-	/* O(number of blocks) */
 
 	buddy_N = buddy_pow;
 	bitmapTree = (char*)space;
