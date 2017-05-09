@@ -120,7 +120,7 @@ void* buddy_alloc(int i) {
 			blockn = buddy_remove_block(buddy_blocks[j], j);
 	
 			if (blockn + (1 << (j - 1)) >= buddy_blocks_num) {
-				/* if the beggining of the second half of divided block is off limit, fake alloc it */
+				/* if the beginning of the second half of divided block is off limit, fake alloc it */
 				bitmapTree_alloc(blockn + (1 << j - 1), j - 1);
 			}
 			else {
