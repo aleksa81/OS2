@@ -412,6 +412,56 @@ int kmem_cache_check_name_availability(const char* name) {
 	return 1;
 }
 
+int kmem_cache_shrink_no_cs(kmem_cache_t *cachep) {
+	/* Does not have critial section */
+
+	if (cachep == nullptr) return 0;
+
+	if (cachep->empty != nullptr && cachep->growing == 1) {
+		cachep->growing = 0;
+		return 0;
+	}
+
+	int num_of_freed_blocks = 0;
+
+	while (cachep->empty != nullptr) {
+		/* free all empty slabs */
+
+		kmem_slab_t* slabp = slab_remove_from_list(&cachep->empty, cachep->empty);
+		cachep->num_of_slabs--;
+
+		/*              --- block to slab mapping update ---                     */
+
+		/* !!!  if used, MUST be before bfree to avoid data corruption:  !!!     */
+
+		/* - POSSIBLE SCENARIO (btsm_update after bfree):                        */
+		/* - 1) bfree is called and blocks are freed.                            */
+		/* - 2) some other thread allocate those blocks for cache [C],           */
+		/*      and sets pointers to its slab.                                   */
+		/* - 3) btsm_update is called and those pointers are set to nullptr,     */
+		/*      where they should point to slab of cache [C].                    */
+		/* - 4) cache [C] is left with corrupted pointers to its slab.           */
+		/* - 5) assertion in kmem_cache_free() will be triggered.                */
+
+		//btsm_update(slabp, nullptr);
+
+		/* destroy all objects on this slab */
+		process_objects_on_slab(slabp, cachep->dtor);
+
+		if (cachep->off_slab == 1) {
+			/* if slab descriptor is kept off slab */
+
+			bfree(slabp->objs);
+			kfree(slabp);
+		}
+		else bfree(slabp);
+
+		num_of_freed_blocks += cachep->slab_size;
+	}
+
+	return num_of_freed_blocks;
+}
+
 /* ----------------------------------------------------------- */
 /* -------------------------- CACHE -------------------------- */
 /* ----------------------------------------------------------- */
@@ -476,50 +526,7 @@ int kmem_cache_shrink(kmem_cache_t *cachep) {
 	/* ENTER CS */
 	enter_cs(cachep);
 
-	if (cachep->growing == 1) {
-		cachep->growing = 0;
-
-		/* LEAVE CS */
-		leave_cs(cachep);
-		return 0;
-	}
-
-	int num_of_freed_blocks = 0;
-
-	while (cachep->empty != nullptr) {
-		/* free all empty slabs */
-
-		kmem_slab_t* slabp = slab_remove_from_list(&cachep->empty, cachep->empty);
-		cachep->num_of_slabs--;
-
-		/*              --- block to slab mapping update ---                     */
-
-		/* !!!  if used, MUST be before bfree to avoid data corruption:  !!!     */
-
-		/* - POSSIBLE SCENARIO (btsm_update after bfree):                        */
-		/* - 1) bfree is called and blocks are freed.                            */
-		/* - 2) some other thread allocate those blocks for cache [C],           */
-		/*      and sets pointers to its slab.                                   */
-		/* - 3) btsm_update is called and those pointers are set to nullptr,     */
-		/*      where they should point to slab of cache [C].                    */
-		/* - 4) cache [C] is left with corrupted pointers to its slab.           */
-		/* - 5) assertion in kmem_cache_free() will be triggered.                */
-
-		//btsm_update(slabp, nullptr);
-
-		/* destroy all objects on this slab */
-		process_objects_on_slab(slabp, cachep->dtor);
-
-		if (cachep->off_slab == 1) {
-			/* if slab descriptor is kept off slab */
-
-			bfree(slabp->objs);
-			kfree(slabp);
-		}
-		else bfree(slabp);
-			
-		num_of_freed_blocks += cachep->slab_size;
-	}
+	int num_of_freed_blocks = kmem_cache_shrink_no_cs(cachep);
 
 	/* LEAVE CS */
 	leave_cs(cachep);
@@ -551,6 +558,10 @@ void* kmem_cache_alloc(kmem_cache_t *cachep) {
 		slab_remove_from_list(&cachep->empty, slabp);
 		slab_add_to_list(&cachep->partial, slabp);
 	}
+
+	/* use if program crashes while trying to reference nullptr */
+	/* to prove that buddy ran out of blocks.                   */
+	//assert(slabp != nullptr);
 
 	if (slabp == nullptr) cachep->error = 1;
 	else {
@@ -585,28 +596,27 @@ void kmem_cache_free(kmem_cache_t *cachep, void *objp) {
 
 	slab_free(slabp, objp);
 
-	if (slabp->my_cache->objs_per_slab == 1) {
-		/* move from full to empty */
-		slab_remove_from_list(&slabp->my_cache->full, slabp);
+	if (slabp->inuse == 0) {
+		/* move from full/partial to empty */
+		if (slabp->my_cache->objs_per_slab == 1) 
+			slab_remove_from_list(&slabp->my_cache->full, slabp);
+		else slab_remove_from_list(&slabp->my_cache->partial, slabp);
+
 		slab_add_to_list(&slabp->my_cache->empty, slabp);
+
+		/* try to shrink cache */
+		kmem_cache_shrink_no_cs(cachep);
 	}
 	else if (slabp->inuse == (slabp->my_cache->objs_per_slab - 1)) {
 		/* move from full to partial */
 		slab_remove_from_list(&slabp->my_cache->full, slabp);
 		slab_add_to_list(&slabp->my_cache->partial, slabp);
 	}
-	else if (slabp->inuse == 0) {
-		/* move from partial to empty */
-		slab_remove_from_list(&slabp->my_cache->partial, slabp);
-		slab_add_to_list(&slabp->my_cache->empty, slabp);
-	}
-
+	
 	cachep->num_of_active_objs--;
 
 	/* LEAVE CS */
 	leave_cs(cachep);
-
-	kmem_cache_shrink(cachep);
 
 	return;
 }

@@ -114,3 +114,5 @@ void btsm_update(kmem_slab_t* slabp, kmem_slab_t* set_to);
 
 /* Check if cachep->name is already taken */
 int kmem_cache_check_name_availability(const char* name);
+
+int kmem_cache_shrink_no_cs(kmem_cache_t *cachep);
