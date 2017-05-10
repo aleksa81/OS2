@@ -413,7 +413,7 @@ int kmem_cache_check_name_availability(const char* name) {
 }
 
 int kmem_cache_shrink_no_cs(kmem_cache_t *cachep) {
-	/* Does not have critial section */
+	/* Does not have critical section */
 
 	if (cachep == nullptr) return 0;
 
